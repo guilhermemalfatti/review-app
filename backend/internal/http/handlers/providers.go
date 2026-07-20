@@ -446,3 +446,52 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		"updated_at":     updatedAt,
 	})
 }
+
+type MyReview struct {
+	ID            uuid.UUID `json:"id"`
+	IsAnonymous   bool      `json:"is_anonymous"`
+	Recommend     bool      `json:"recommend"`
+	ScorePrice    *int      `json:"score_price"`
+	ScoreQuality  *int      `json:"score_quality"`
+	ScoreDeadline *int      `json:"score_deadline"`
+	Comment       string    `json:"comment"`
+	ServiceDate   *string   `json:"service_date"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+func (h *ProvidersHandler) MyReview(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	providerID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid provider id")
+		return
+	}
+
+	var review MyReview
+	err = h.pool.QueryRow(r.Context(), `
+		SELECT r.id, r.is_anonymous, r.recommend, r.score_price, r.score_quality, r.score_deadline,
+			r.comment, r.service_date::text, r.status, r.created_at, r.updated_at
+		FROM reviews r
+		JOIN providers p ON p.id = r.provider_id
+		WHERE r.provider_id = $1 AND r.user_id = $2 AND p.condo_id = $3
+	`, providerID, user.ID, h.condoID).Scan(
+		&review.ID, &review.IsAnonymous, &review.Recommend, &review.ScorePrice, &review.ScoreQuality, &review.ScoreDeadline,
+		&review.Comment, &review.ServiceDate, &review.Status, &review.CreatedAt, &review.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			WriteError(w, http.StatusNotFound, "review not found")
+			return
+		}
+		WriteError(w, http.StatusInternalServerError, "failed to lookup review")
+		return
+	}
+	WriteJSON(w, http.StatusOK, review)
+}

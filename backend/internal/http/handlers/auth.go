@@ -110,9 +110,9 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	err = h.pool.QueryRow(r.Context(), `
 		INSERT INTO users (condo_id, email, password_hash, display_name, role)
 		VALUES ($1, $2, $3, $4, 'resident')
-		RETURNING id, email, display_name, role, condo_id
+		RETURNING id, email, display_name, role, condo_id, must_change_password
 	`, h.condoID, req.Email, hash, req.DisplayName).Scan(
-		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID,
+		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -149,9 +149,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var user auth.User
 	var passwordHash string
 	err := h.pool.QueryRow(r.Context(), `
-		SELECT id, email, display_name, role, condo_id, password_hash
+		SELECT id, email, display_name, role, condo_id, must_change_password, password_hash
 		FROM users WHERE email = $1
-	`, req.Email).Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &passwordHash)
+	`, req.Email).Scan(
+		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword, &passwordHash,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			WriteError(w, http.StatusUnauthorized, "invalid email or password")
@@ -194,5 +196,66 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	WriteJSON(w, http.StatusOK, userResponse{User: user})
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req changePasswordRequest
+	if err := DecodeJSON(r, &req); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.CurrentPassword == "" || len(req.NewPassword) < 8 {
+		WriteError(w, http.StatusBadRequest, "current_password and new_password (min 8) are required")
+		return
+	}
+	if req.CurrentPassword == req.NewPassword {
+		WriteError(w, http.StatusBadRequest, "new password must be different")
+		return
+	}
+
+	var passwordHash string
+	err := h.pool.QueryRow(r.Context(), `
+		SELECT password_hash FROM users WHERE id = $1
+	`, user.ID).Scan(&passwordHash)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to lookup user")
+		return
+	}
+	if !auth.CheckPassword(passwordHash, req.CurrentPassword) {
+		WriteError(w, http.StatusUnauthorized, "invalid current password")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	err = h.pool.QueryRow(r.Context(), `
+		UPDATE users
+		SET password_hash = $1, must_change_password = false
+		WHERE id = $2
+		RETURNING id, email, display_name, role, condo_id, must_change_password
+	`, hash, user.ID).Scan(
+		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword,
+	)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+
 	WriteJSON(w, http.StatusOK, userResponse{User: user})
 }

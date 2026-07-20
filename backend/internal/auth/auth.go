@@ -17,11 +17,12 @@ import (
 const CookieName = "session"
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Role        string    `json:"role"`
-	CondoID     uuid.UUID `json:"condo_id"`
+	ID                 uuid.UUID `json:"id"`
+	Email              string    `json:"email"`
+	DisplayName        string    `json:"display_name"`
+	Role               string    `json:"role"`
+	CondoID            uuid.UUID `json:"condo_id"`
+	MustChangePassword bool      `json:"must_change_password"`
 }
 
 type SessionStore struct {
@@ -80,11 +81,11 @@ func (s *SessionStore) GetUser(ctx context.Context, token string) (*User, error)
 	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.email, u.display_name, u.role, u.condo_id
+		SELECT u.id, u.email, u.display_name, u.role, u.condo_id, u.must_change_password
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = $1 AND s.expires_at > now()
-	`, hashToken(token)).Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.CondoID)
+	`, hashToken(token)).Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.CondoID, &u.MustChangePassword)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +98,23 @@ func (s *SessionStore) Delete(ctx context.Context, token string) error {
 	}
 	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE token_hash = $1`, hashToken(token))
 	return err
+}
+
+func (s *SessionStore) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+	return err
+}
+
+func GenerateTemporaryPassword() (string, error) {
+	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+	b := make([]byte, 12)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = alphabet[int(b[i])%len(alphabet)]
+	}
+	return string(b), nil
 }
 
 func (s *SessionStore) DeleteExpired(ctx context.Context) error {

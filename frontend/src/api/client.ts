@@ -1,11 +1,15 @@
 import type {
+  AdminUser,
+  ChangePasswordPayload,
   CreateProviderPayload,
   CreateReviewPayload,
   LoginPayload,
+  MyReview,
   PendingProvider,
   PendingReview,
   ProviderDetail,
   ProviderListItem,
+  ResetPasswordResult,
   SignupPayload,
   User,
 } from './types'
@@ -78,6 +82,13 @@ export const api = {
     return request<{ user: User }>('/api/auth/me')
   },
 
+  changePassword(payload: ChangePasswordPayload) {
+    return request<{ user: User }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
   listProviders(params?: { category?: string; q?: string }) {
     const search = new URLSearchParams()
     if (params?.category) search.set('category', params.category)
@@ -104,6 +115,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     })
+  },
+
+  getMyReview(providerId: string) {
+    return request<MyReview>(`/api/providers/${providerId}/my-review`)
   },
 
   adminPendingProviders() {
@@ -133,11 +148,24 @@ export const api = {
   adminRejectReview(id: string) {
     return request<void>(`/api/admin/reviews/${id}/reject`, { method: 'POST' })
   },
+
+  adminListUsers() {
+    return request<AdminUser[] | { users: AdminUser[] }>('/api/admin/users')
+  },
+
+  adminResetPassword(id: string) {
+    return request<ResetPasswordResult>(`/api/admin/users/${id}/reset-password`, {
+      method: 'POST',
+    })
+  },
 }
 
-export function unwrapList<T>(data: T[] | { providers: T[] } | { reviews: T[] }): T[] {
+export function unwrapList<T>(
+  data: T[] | { providers: T[] } | { reviews: T[] } | { users: T[] },
+): T[] {
   if (Array.isArray(data)) return data
   if ('providers' in data) return data.providers
   if ('reviews' in data) return data.reviews
+  if ('users' in data) return data.users
   return []
 }

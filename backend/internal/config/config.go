@@ -7,15 +7,17 @@ import (
 )
 
 type Config struct {
-	DatabaseURL     string
-	SessionSecret   string
-	InviteCode      string
-	CORSOrigin      string
-	Port            string
-	AdminEmail      string
-	AdminPassword   string
+	DatabaseURL      string
+	SessionSecret    string
+	InviteCode       string
+	CORSOrigin       string
+	Port             string
+	AdminEmail       string
+	AdminPassword    string
 	AdminDisplayName string
-	SessionDays     int
+	SessionDays      int
+	SeedDemo         bool
+	ResetDB          bool
 }
 
 func Load() (*Config, error) {
@@ -29,6 +31,8 @@ func Load() (*Config, error) {
 		AdminPassword:    getEnv("ADMIN_PASSWORD", "admin123"),
 		AdminDisplayName: getEnv("ADMIN_DISPLAY_NAME", "Admin"),
 		SessionDays:      30,
+		SeedDemo:         getEnv("SEED_DEMO", "false") == "true",
+		ResetDB:          getEnv("RESET_DB", "false") == "true",
 	}
 
 	if days := os.Getenv("SESSION_DAYS"); days != "" {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gmalfatti/indica/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -217,4 +218,96 @@ func (h *AdminHandler) ApproveReview(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) RejectReview(w http.ResponseWriter, r *http.Request) {
 	h.setReviewStatus(w, r, "rejected")
+}
+
+type AdminUserItem struct {
+	ID                 uuid.UUID `json:"id"`
+	Email              string    `json:"email"`
+	DisplayName        string    `json:"display_name"`
+	Role               string    `json:"role"`
+	MustChangePassword bool      `json:"must_change_password"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT id, email, display_name, role, must_change_password, created_at
+		FROM users
+		WHERE condo_id = $1
+		ORDER BY display_name ASC, email ASC
+	`, h.condoID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to list users")
+		return
+	}
+	defer rows.Close()
+
+	items := make([]AdminUserItem, 0)
+	for rows.Next() {
+		var item AdminUserItem
+		if err := rows.Scan(
+			&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.MustChangePassword, &item.CreatedAt,
+		); err != nil {
+			WriteError(w, http.StatusInternalServerError, "failed to scan user")
+			return
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to list users")
+		return
+	}
+	WriteJSON(w, http.StatusOK, items)
+}
+
+type resetPasswordResponse struct {
+	User                AdminUserItem `json:"user"`
+	TemporaryPassword   string        `json:"temporary_password"`
+}
+
+func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	tempPassword, err := auth.GenerateTemporaryPassword()
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to generate password")
+		return
+	}
+	hash, err := auth.HashPassword(tempPassword)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	var item AdminUserItem
+	err = h.pool.QueryRow(r.Context(), `
+		UPDATE users
+		SET password_hash = $1, must_change_password = true
+		WHERE id = $2 AND condo_id = $3
+		RETURNING id, email, display_name, role, must_change_password, created_at
+	`, hash, id, h.condoID).Scan(
+		&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.MustChangePassword, &item.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			WriteError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		WriteError(w, http.StatusInternalServerError, "failed to reset password")
+		return
+	}
+
+	if _, err := h.pool.Exec(r.Context(), `DELETE FROM sessions WHERE user_id = $1`, id); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to revoke sessions")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, resetPasswordResponse{
+		User:              item,
+		TemporaryPassword: tempPassword,
+	})
 }

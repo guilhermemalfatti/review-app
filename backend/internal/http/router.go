@@ -50,6 +50,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/login", authH.Login)
 		r.Post("/logout", authH.Logout)
 		r.Get("/me", authH.Me)
+		r.With(middleware.RequireAuth(d.Sessions, handlers.WriteError)).Post("/change-password", authH.ChangePassword)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -60,19 +61,24 @@ func NewRouter(d Deps) http.Handler {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth(d.Sessions, handlers.WriteError))
+		r.Use(middleware.RequirePasswordChanged(handlers.WriteError))
 		r.Post("/api/providers", providersH.Create)
+		r.Get("/api/providers/{id}/my-review", providersH.MyReview)
 		r.Post("/api/providers/{id}/reviews", providersH.CreateReview)
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
 		r.Use(middleware.RequireAuth(d.Sessions, handlers.WriteError))
 		r.Use(middleware.RequireAdmin(handlers.WriteError))
+		r.Use(middleware.RequirePasswordChanged(handlers.WriteError))
 		r.Get("/providers", adminH.ListProviders)
 		r.Post("/providers/{id}/approve", adminH.ApproveProvider)
 		r.Post("/providers/{id}/reject", adminH.RejectProvider)
 		r.Get("/reviews", adminH.ListReviews)
 		r.Post("/reviews/{id}/approve", adminH.ApproveReview)
 		r.Post("/reviews/{id}/reject", adminH.RejectReview)
+		r.Get("/users", adminH.ListUsers)
+		r.Post("/users/{id}/reset-password", adminH.ResetPassword)
 	})
 
 	return r

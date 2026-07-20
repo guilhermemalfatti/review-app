@@ -43,6 +43,13 @@ func main() {
 	}
 	defer pool.Close()
 
+	if cfg.ResetDB {
+		log.Printf("RESET_DB=true — wiping all data, then re-seeding")
+		if err := db.ResetDB(ctx, pool); err != nil {
+			log.Fatalf("reset db: %v", err)
+		}
+	}
+
 	condoID, err := db.Seed(ctx, pool, db.SeedConfig{
 		InviteCode:       cfg.InviteCode,
 		AdminEmail:       cfg.AdminEmail,
@@ -53,6 +60,12 @@ func main() {
 		log.Fatalf("seed: %v", err)
 	}
 	log.Printf("seeded condo %s (%s)", db.CondoSlug, condoID)
+
+	if cfg.SeedDemo || cfg.ResetDB {
+		if err := db.SeedDemo(ctx, pool, condoID); err != nil {
+			log.Fatalf("seed demo: %v", err)
+		}
+	}
 
 	sessions := auth.NewSessionStore(pool, cfg.SessionDays)
 	_ = sessions.DeleteExpired(ctx)

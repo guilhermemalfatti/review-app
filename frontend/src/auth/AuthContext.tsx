@@ -7,16 +7,18 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { api, ApiError } from '../api/client'
-import type { LoginPayload, SignupPayload, User } from '../api/types'
+import { api } from '../api/client'
+import type { ChangePasswordPayload, LoginPayload, SignupPayload, User } from '../api/types'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
   isAdmin: boolean
-  login: (payload: LoginPayload) => Promise<void>
-  signup: (payload: SignupPayload) => Promise<void>
+  mustChangePassword: boolean
+  login: (payload: LoginPayload) => Promise<User>
+  signup: (payload: SignupPayload) => Promise<User>
   logout: () => Promise<void>
+  changePassword: (payload: ChangePasswordPayload) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -30,12 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.me()
       setUser(data.user)
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setUser(null)
-      } else {
-        setUser(null)
-      }
+    } catch {
+      setUser(null)
     } finally {
       setLoading(false)
     }
@@ -48,11 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (payload: LoginPayload) => {
     const data = await api.login(payload)
     setUser(data.user)
+    return data.user
   }, [])
 
   const signup = useCallback(async (payload: SignupPayload) => {
     const data = await api.signup(payload)
     setUser(data.user)
+    return data.user
   }, [])
 
   const logout = useCallback(async () => {
@@ -63,17 +63,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const changePassword = useCallback(async (payload: ChangePasswordPayload) => {
+    const data = await api.changePassword(payload)
+    setUser(data.user)
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
       loading,
       isAdmin: user?.role === 'admin',
+      mustChangePassword: Boolean(user?.must_change_password),
       login,
       signup,
       logout,
+      changePassword,
       refresh,
     }),
-    [user, loading, login, signup, logout, refresh],
+    [user, loading, login, signup, logout, changePassword, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

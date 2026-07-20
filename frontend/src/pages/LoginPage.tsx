@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
 
 export function LoginPage() {
-  const { login, user, loading } = useAuth()
+  const { login, user, loading, mustChangePassword } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -16,7 +16,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (!loading && user) {
-    return <Navigate to={from} replace />
+    return <Navigate to={mustChangePassword ? '/change-password' : from} replace />
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -24,8 +24,8 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login({ email: email.trim(), password })
-      navigate(from, { replace: true })
+      const loggedIn = await login({ email: email.trim(), password })
+      navigate(loggedIn.must_change_password ? '/change-password' : from, { replace: true })
     } catch (err) {
       setError(
         err instanceof ApiError

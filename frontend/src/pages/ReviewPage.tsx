@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
-import type { ProviderDetail } from '../api/types'
+import type { MyReview, ProviderDetail } from '../api/types'
 import { StatusMessage } from '../components/StatusMessage'
+
+function scoreToInput(value: number | null | undefined): string {
+  return value == null ? '' : String(value)
+}
 
 export function ReviewPage() {
   const { id } = useParams<{ id: string }>()
   const [provider, setProvider] = useState<ProviderDetail | null>(null)
+  const [existingReview, setExistingReview] = useState<MyReview | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loadingProvider, setLoadingProvider] = useState(true)
 
@@ -20,6 +25,7 @@ export function ReviewPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [replaced, setReplaced] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -30,7 +36,27 @@ export function ReviewPage() {
       setLoadingProvider(true)
       try {
         const data = await api.getProvider(id!)
-        if (!cancelled) setProvider(data)
+        if (cancelled) return
+        setProvider(data)
+
+        try {
+          const mine = await api.getMyReview(id!)
+          if (cancelled) return
+          setExistingReview(mine)
+          setRecommend(mine.recommend)
+          setScorePrice(scoreToInput(mine.score_price))
+          setScoreQuality(scoreToInput(mine.score_quality))
+          setScoreDeadline(scoreToInput(mine.score_deadline))
+          setComment(mine.comment ?? '')
+          setServiceDate(mine.service_date ?? '')
+          setShowName(!mine.is_anonymous)
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 404) {
+            if (!cancelled) setExistingReview(null)
+          } else if (!cancelled) {
+            setExistingReview(null)
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(
@@ -60,8 +86,17 @@ export function ReviewPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!id) return
+
+    if (existingReview) {
+      const ok = window.confirm(
+        'Você já enviou uma indicação para este prestador. Enviar de novo substitui a anterior e ela volta para aprovação do administrador. Deseja continuar?',
+      )
+      if (!ok) return
+    }
+
     setError(null)
     setSuccess(false)
+    setReplaced(false)
     setSubmitting(true)
 
     try {
@@ -83,13 +118,9 @@ export function ReviewPage() {
 
       await api.createReview(id, payload)
       setSuccess(true)
-      setComment('')
-      setScorePrice('')
-      setScoreQuality('')
-      setScoreDeadline('')
-      setServiceDate('')
-      setRecommend(true)
-      setShowName(true)
+      setReplaced(Boolean(existingReview))
+      const mine = await api.getMyReview(id)
+      setExistingReview(mine)
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -122,6 +153,15 @@ export function ReviewPage() {
     )
   }
 
+  const statusLabel =
+    existingReview?.status === 'approved'
+      ? 'aprovada'
+      : existingReview?.status === 'pending'
+        ? 'aguardando aprovação'
+        : existingReview?.status === 'rejected'
+          ? 'rejeitada'
+          : null
+
   return (
     <div className="page page--form page-enter">
       <header className="form-page-header">
@@ -130,10 +170,20 @@ export function ReviewPage() {
         <p>Conte como foi o serviço. Sua indicação será publicada após aprovação.</p>
       </header>
 
+      {existingReview && (
+        <StatusMessage tone="info">
+          Você já tem uma indicação para este prestador
+          {statusLabel ? ` (${statusLabel})` : ''}. Enviar de novo{' '}
+          <strong>substitui a anterior</strong> e ela volta para a fila de
+          aprovação.
+        </StatusMessage>
+      )}
+
       {success && (
         <StatusMessage tone="success">
-          Indicação enviada. Ela aguarda aprovação do administrador antes de
-          aparecer publicamente.
+          {replaced
+            ? 'Indicação atualizada. Ela aguarda nova aprovação do administrador antes de aparecer publicamente.'
+            : 'Indicação enviada. Ela aguarda aprovação do administrador antes de aparecer publicamente.'}
         </StatusMessage>
       )}
 
@@ -164,36 +214,36 @@ export function ReviewPage() {
 
         <div className="score-fields">
           <label className="field">
-            <span>Preço (1–5)</span>
+            <span>Preço — vale o que cobra?</span>
             <select value={scorePrice} onChange={(e) => setScorePrice(e.target.value)}>
-              <option value="">Opcional</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
+              <option value="">Não informar</option>
+              <option value="1">1 — Ruim</option>
+              <option value="2">2 — Fraco</option>
+              <option value="3">3 — Regular</option>
+              <option value="4">4 — Bom</option>
+              <option value="5">5 — Excelente</option>
             </select>
           </label>
           <label className="field">
-            <span>Qualidade (1–5)</span>
+            <span>Qualidade — o serviço ficou bom?</span>
             <select value={scoreQuality} onChange={(e) => setScoreQuality(e.target.value)}>
-              <option value="">Opcional</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
+              <option value="">Não informar</option>
+              <option value="1">1 — Ruim</option>
+              <option value="2">2 — Fraco</option>
+              <option value="3">3 — Regular</option>
+              <option value="4">4 — Bom</option>
+              <option value="5">5 — Excelente</option>
             </select>
           </label>
           <label className="field">
-            <span>Prazo (1–5)</span>
+            <span>Prazo — cumpriu o tempo combinado?</span>
             <select value={scoreDeadline} onChange={(e) => setScoreDeadline(e.target.value)}>
-              <option value="">Opcional</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
+              <option value="">Não informar</option>
+              <option value="1">1 — Ruim</option>
+              <option value="2">2 — Fraco</option>
+              <option value="3">3 — Regular</option>
+              <option value="4">4 — Bom</option>
+              <option value="5">5 — Excelente</option>
             </select>
           </label>
         </div>
@@ -235,7 +285,11 @@ export function ReviewPage() {
         </fieldset>
 
         <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
-          {submitting ? 'Enviando…' : 'Enviar indicação'}
+          {submitting
+            ? 'Enviando…'
+            : existingReview
+              ? 'Atualizar indicação'
+              : 'Enviar indicação'}
         </button>
       </form>
 

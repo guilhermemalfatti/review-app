@@ -1,4 +1,4 @@
-export type UserRole = 'member' | 'admin' | string
+export type UserRole = 'resident' | 'admin' | string
 
 export interface User {
   id: string
@@ -6,6 +6,26 @@ export interface User {
   display_name: string
   role: UserRole
   condo_id: string
+  must_change_password: boolean
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  display_name: string
+  role: UserRole
+  must_change_password: boolean
+  created_at: string
+}
+
+export interface ResetPasswordResult {
+  user: AdminUser
+  temporary_password: string
+}
+
+export interface ChangePasswordPayload {
+  current_password: string
+  new_password: string
 }
 
 export interface Aggregates {
@@ -53,6 +73,8 @@ export interface PendingProvider {
   status?: string
   created_at?: string
   suggested_by?: string
+  creator_display_name?: string
+  creator_email?: string
 }
 
 export interface PendingReview {
@@ -60,6 +82,8 @@ export interface PendingReview {
   provider_id: string
   provider_name?: string
   author_label?: string
+  author_display_name?: string
+  author_email?: string
   recommend: boolean
   score_price: number | null
   score_quality: number | null
@@ -97,6 +121,20 @@ export interface CreateReviewPayload {
   score_deadline?: number
   comment: string
   service_date?: string
+}
+
+export interface MyReview {
+  id: string
+  is_anonymous: boolean
+  recommend: boolean
+  score_price: number | null
+  score_quality: number | null
+  score_deadline: number | null
+  comment: string | null
+  service_date: string | null
+  status: string
+  created_at: string
+  updated_at: string
 }
 
 export const CATEGORIES = [

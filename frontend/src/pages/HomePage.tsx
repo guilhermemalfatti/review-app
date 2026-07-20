@@ -57,7 +57,7 @@ export function HomePage() {
         <p className="hero__eyebrow">Comunidade Cantegril</p>
         <h1 className="hero__brand">Indica</h1>
         <p className="hero__lead">
-          Prestadores de confiança indicados por quem mora ao lado — antes de
+          Prestadores de confiança indicados por quem mora ao lado, antes de
           chamar, pergunte aos vizinhos.
         </p>
       </section>

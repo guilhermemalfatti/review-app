@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import type { ProviderDetail } from '../api/types'
+import { ScoreCard, ScoreInline } from '../components/ScoreDisplay'
 import { StatusMessage } from '../components/StatusMessage'
-import { formatDate, formatScore, indicationSummary } from '../lib/format'
+import { formatDate, indicationSummary } from '../lib/format'
 
 export function ProviderDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -86,22 +87,30 @@ export function ProviderDetailPage() {
         {provider.notes && <p className="detail-header__notes">{provider.notes}</p>}
       </header>
 
-      <section className="score-strip" aria-label="Médias">
-        <div>
-          <span className="score-strip__label">Preço</span>
-          <strong>{formatScore(provider.aggregates.avg_price)}</strong>
-        </div>
-        <div>
-          <span className="score-strip__label">Qualidade</span>
-          <strong>{formatScore(provider.aggregates.avg_quality)}</strong>
-        </div>
-        <div>
-          <span className="score-strip__label">Prazo</span>
-          <strong>{formatScore(provider.aggregates.avg_deadline)}</strong>
-        </div>
-        <div>
-          <span className="score-strip__label">Geral</span>
-          <strong>{formatScore(provider.aggregates.avg_overall)}</strong>
+      <section className="score-board" aria-label="Notas dos vizinhos">
+        <h2 className="score-board__title">Notas dos vizinhos</h2>
+        <p className="score-board__legend">Cada nota vai de 1 (ruim) a 5 (excelente).</p>
+        <div className="score-board__grid">
+          <ScoreCard
+            label="Preço"
+            hint="Vale o que cobra?"
+            value={provider.aggregates.avg_price}
+          />
+          <ScoreCard
+            label="Qualidade"
+            hint="O serviço ficou bom?"
+            value={provider.aggregates.avg_quality}
+          />
+          <ScoreCard
+            label="Prazo"
+            hint="Cumpriu o tempo combinado?"
+            value={provider.aggregates.avg_deadline}
+          />
+          <ScoreCard
+            label="Geral"
+            hint="Média de tudo"
+            value={provider.aggregates.avg_overall}
+          />
         </div>
       </section>
 
@@ -112,7 +121,7 @@ export function ProviderDetailPage() {
       </div>
 
       <section className="reviews-section" aria-labelledby="reviews-heading">
-        <h2 id="reviews-heading">Indicações aprovadas</h2>
+        <h2 id="reviews-heading">O que os vizinhos disseram</h2>
 
         {reviews.length === 0 ? (
           <div className="state-block">
@@ -137,11 +146,11 @@ export function ProviderDetailPage() {
                     {review.recommend ? 'Recomenda' : 'Não recomenda'}
                   </span>
                 </div>
-                <p className="review-item__scores">
-                  Preço {formatScore(review.score_price)} · Qualidade{' '}
-                  {formatScore(review.score_quality)} · Prazo{' '}
-                  {formatScore(review.score_deadline)}
-                </p>
+                <ul className="review-item__scores">
+                  <ScoreInline label="Preço" value={review.score_price} />
+                  <ScoreInline label="Qualidade" value={review.score_quality} />
+                  <ScoreInline label="Prazo" value={review.score_deadline} />
+                </ul>
                 {review.comment && (
                   <p className="review-item__comment">{review.comment}</p>
                 )}

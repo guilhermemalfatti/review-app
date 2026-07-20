@@ -40,6 +40,20 @@ func RequireAdmin(writeErr ErrorWriter) func(http.Handler) http.Handler {
 	}
 }
 
+// RequirePasswordChanged blocks write actions until the user sets a new password after an admin reset.
+func RequirePasswordChanged(writeErr ErrorWriter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := auth.UserFromContext(r.Context())
+			if user != nil && user.MustChangePassword {
+				writeErr(w, http.StatusForbidden, "password change required")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // OptionalAuth loads the user if a valid session cookie is present; otherwise continues anonymously.
 func OptionalAuth(sessions *auth.SessionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

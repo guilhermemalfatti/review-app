@@ -7,7 +7,7 @@ Residents of condo **Cantegril** share trusted service-provider indications. Thi
 
 ## Prerequisites
 
-- Go 1.22+
+- Go 1.26+
 - Docker + Docker Compose
 
 ## 1. Environment
@@ -26,8 +26,10 @@ Defaults:
 | `CORS_ORIGIN` | `http://localhost:5173` |
 | `PORT` | `8080` |
 | `ADMIN_EMAIL` | `admin@cantegril.local` |
-| `ADMIN_PASSWORD` | `admin123` |
+| `ADMIN_PASSWORD` | `admin` |
 | `ADMIN_DISPLAY_NAME` | `Admin` |
+| `SEED_DEMO` | `false` (`true` loads sample providers + reviews) |
+| `RESET_DB` | `false` (`true` wipes all data on startup, then runs seeders; set back to `false` after) |
 
 ## 2. Start Postgres
 
@@ -77,6 +79,16 @@ Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the 
 - **Invite code (signup):** `CANTEGRIL2026`
 - **Admin:** `admin@cantegril.local` / `admin123`
 
+Admins can list users and reset passwords in the Admin UI. A reset issues a temporary password, revokes sessions, and forces a password change on next login (`POST /api/auth/change-password`).
+
+### Fresh demo data
+
+1. Set `RESET_DB=true` and `SEED_DEMO=true` in `.env`
+2. Restart the API (`go run ./cmd/server`)
+3. Set `RESET_DB=false` again so the next restart does not wipe data
+
+`RESET_DB` truncates all tables, then runs the condo/admin seeder and the demo seeder (15 providers, many positive and negative reviews).
+
 ## API overview
 
 | Method | Path | Auth |
@@ -86,6 +98,7 @@ Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the 
 | POST | `/api/auth/login` | public |
 | POST | `/api/auth/logout` | optional |
 | GET | `/api/auth/me` | session |
+| POST | `/api/auth/change-password` | session |
 | GET | `/api/providers` | public (approved only) |
 | GET | `/api/providers/:id` | public (approved; admin can see others) |
 | POST | `/api/providers` | session |
@@ -96,5 +109,7 @@ Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the 
 | GET | `/api/admin/reviews` | admin |
 | POST | `/api/admin/reviews/:id/approve` | admin |
 | POST | `/api/admin/reviews/:id/reject` | admin |
+| GET | `/api/admin/users` | admin |
+| POST | `/api/admin/users/:id/reset-password` | admin |
 
 Session cookie name: `session` (HTTP-only).
