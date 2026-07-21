@@ -20,17 +20,18 @@ export function AdminPage() {
     password: string
   } | null>(null)
 
-  const loadTab = useCallback(async (active: AdminTab) => {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      if (active === 'providers') {
-        setProviders(await api.adminPendingProviders())
-      } else if (active === 'reviews') {
-        setReviews(await api.adminPendingReviews())
-      } else {
-        setUsers(await api.adminListUsers())
-      }
+      const [pendingProviders, pendingReviews, allUsers] = await Promise.all([
+        api.adminPendingProviders(),
+        api.adminPendingReviews(),
+        api.adminListUsers(),
+      ])
+      setProviders(pendingProviders)
+      setReviews(pendingReviews)
+      setUsers(allUsers)
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -43,8 +44,8 @@ export function AdminPage() {
   }, [])
 
   useEffect(() => {
-    void loadTab(tab)
-  }, [tab, loadTab])
+    void loadAll()
+  }, [loadAll])
 
   useEffect(() => {
     if (!tempPasswordNotice) return
