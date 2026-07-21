@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +14,7 @@ import (
 	"github.com/gmalfatti/indica/backend/internal/config"
 	"github.com/gmalfatti/indica/backend/internal/db"
 	httpserver "github.com/gmalfatti/indica/backend/internal/http"
+	"github.com/gmalfatti/indica/backend/internal/logging"
 	"github.com/joho/godotenv"
 )
 
@@ -23,8 +24,11 @@ func main() {
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		// logging not set up yet
+		slog.Error("config", "err", err)
+		os.Exit(1)
 	}
+	logging.Setup(cfg.AppEnv)
 
 	ctx := context.Background()
 
@@ -34,22 +38,26 @@ func main() {
 	}
 
 	if err := db.Migrate(cfg.DatabaseURL, migrationsDir); err != nil {
-		log.Fatalf("migrate: %v", err)
+		slog.Error("migrate", "err", err)
+		os.Exit(1)
 	}
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		slog.Error("db connect", "err", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
 	if cfg.ResetDB {
 		if cfg.AppEnv == "production" {
-			log.Fatalf("RESET_DB is not allowed in production")
+			slog.Error("RESET_DB is not allowed in production")
+			os.Exit(1)
 		}
-		log.Printf("RESET_DB=true — wiping all data, then re-seeding")
+		slog.Warn("RESET_DB=true — wiping all data, then re-seeding")
 		if err := db.ResetDB(ctx, pool); err != nil {
-			log.Fatalf("reset db: %v", err)
+			slog.Error("reset db", "err", err)
+			os.Exit(1)
 		}
 	}
 
@@ -60,25 +68,29 @@ func main() {
 		AdminDisplayName: cfg.AdminDisplayName,
 	})
 	if err != nil {
-		log.Fatalf("seed: %v", err)
+		slog.Error("seed", "err", err)
+		os.Exit(1)
 	}
-	log.Printf("seeded condo %s (%s)", db.CondoSlug, condoID)
+	slog.Info("seeded condo", "slug", db.CondoSlug, "condo_id", condoID)
 
 	if cfg.SeedDemo || cfg.ResetDB {
 		if err := db.SeedDemo(ctx, pool, condoID); err != nil {
-			log.Fatalf("seed demo: %v", err)
+			slog.Error("seed demo", "err", err)
+			os.Exit(1)
 		}
 	}
 
 	sessions := auth.NewSessionStore(pool, cfg.SessionDays)
-	_ = sessions.DeleteExpired(ctx)
+	if err := sessions.DeleteExpired(ctx); err != nil {
+		slog.Warn("delete expired sessions on startup", "err", err)
+	}
 
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
 			if err := sessions.DeleteExpired(context.Background()); err != nil {
-				log.Printf("delete expired sessions: %v", err)
+				slog.Error("delete expired sessions", "err", err)
 			}
 		}
 	}()
@@ -101,20 +113,22 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("listening on :%s (env=%s)", cfg.Port, cfg.AppEnv)
+		slog.Info("listening", "addr", ":"+cfg.Port, "env", cfg.AppEnv, "cookie_secure", cfg.CookieSecure)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			slog.Error("server", "err", err)
+			os.Exit(1)
 		}
 	}()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
+	slog.Info("shutting down")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown: %v", err)
+		slog.Error("shutdown", "err", err)
 	}
 }
 

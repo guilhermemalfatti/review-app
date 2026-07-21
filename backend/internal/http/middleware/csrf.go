@@ -5,8 +5,11 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/gmalfatti/indica/backend/internal/logging"
 )
 
 const (
@@ -18,6 +21,8 @@ func CSRFTokenHandler(cookieSecure bool, writeErr ErrorWriter) http.HandlerFunc 
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, err := ensureCSRFCookie(w, r, cookieSecure)
 		if err != nil {
+			attrs := append(logging.RequestAttrs(r), "err", err)
+			slog.Error("failed to issue csrf token", attrs...)
 			writeErr(w, http.StatusInternalServerError, "failed to issue csrf token")
 			return
 		}

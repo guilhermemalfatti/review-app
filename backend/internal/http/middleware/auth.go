@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gmalfatti/indica/backend/internal/auth"
+	"github.com/gmalfatti/indica/backend/internal/logging"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,6 +26,8 @@ func RequireAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Ha
 					writeErr(w, http.StatusUnauthorized, "unauthorized")
 					return
 				}
+				attrs := append(logging.RequestAttrs(r), "err", err)
+				slog.Error("session lookup failed", attrs...)
 				writeErr(w, http.StatusServiceUnavailable, "service unavailable")
 				return
 			}
@@ -69,6 +73,8 @@ func OptionalAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.H
 				user, err := sessions.GetUser(r.Context(), c.Value)
 				if err != nil {
 					if !errors.Is(err, pgx.ErrNoRows) {
+						attrs := append(logging.RequestAttrs(r), "err", err)
+						slog.Error("optional auth session lookup failed", attrs...)
 						writeErr(w, http.StatusServiceUnavailable, "service unavailable")
 						return
 					}

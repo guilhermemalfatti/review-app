@@ -161,7 +161,7 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 		ORDER BY p.name ASC
 	`, args...)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list providers")
+		WriteServerError(w, r, "failed to list providers", err)
 		return
 	}
 	defer rows.Close()
@@ -178,7 +178,7 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 			&hired, &recommend, &notRecommend,
 			&avgPrice, &avgQuality, &avgDeadline, &avgOverall, &lastService,
 		); err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to scan provider")
+			WriteServerError(w, r, "failed to scan provider", err)
 			return
 		}
 		item.Phone = phoneForViewer(authenticated, phone)
@@ -186,7 +186,7 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list providers")
+		WriteServerError(w, r, "failed to list providers", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, items)
@@ -232,7 +232,7 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusNotFound, "provider not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to get provider")
+		WriteServerError(w, r, "failed to get provider", err)
 		return
 	}
 
@@ -255,7 +255,7 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 		ORDER BY r.created_at DESC
 	`, id)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list reviews")
+		WriteServerError(w, r, "failed to list reviews", err)
 		return
 	}
 	defer rows.Close()
@@ -270,7 +270,7 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 			&rev.ScorePrice, &rev.ScoreQuality, &rev.ScoreDeadline,
 			&rev.Comment, &serviceDate, &rev.CreatedAt,
 		); err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to scan review")
+			WriteServerError(w, r, "failed to scan review", err)
 			return
 		}
 		if isAnon {
@@ -282,7 +282,7 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 		detail.Reviews = append(detail.Reviews, rev)
 	}
 	if err := rows.Err(); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list reviews")
+		WriteServerError(w, r, "failed to list reviews", err)
 		return
 	}
 
@@ -318,7 +318,7 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		WriteServerError(w, r, "failed to begin transaction", err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -337,7 +337,7 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusConflict, "a provider with this name already exists")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to create provider")
+		WriteServerError(w, r, "failed to create provider", err)
 		return
 	}
 
@@ -353,12 +353,12 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 			"status":   status,
 		},
 	}); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		WriteServerError(w, r, "failed to record audit event", err)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to commit")
+		WriteServerError(w, r, "failed to commit", err)
 		return
 	}
 
@@ -417,7 +417,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			WriteError(w, http.StatusNotFound, "provider not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to lookup provider")
+		WriteServerError(w, r, "failed to lookup provider", err)
 		return
 	}
 	if providerStatus != "approved" {
@@ -427,7 +427,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		WriteServerError(w, r, "failed to begin transaction", err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -466,11 +466,11 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 					"status":       status,
 				},
 			}); err != nil {
-				WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+				WriteServerError(w, r, "failed to record audit event", err)
 				return
 			}
 			if err := tx.Commit(r.Context()); err != nil {
-				WriteError(w, http.StatusInternalServerError, "failed to commit")
+				WriteServerError(w, r, "failed to commit", err)
 				return
 			}
 			WriteJSON(w, http.StatusCreated, map[string]any{
@@ -491,18 +491,18 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		}
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
-			WriteError(w, http.StatusInternalServerError, "failed to create review")
+			WriteServerError(w, r, "failed to create review", err)
 			return
 		}
 		err = tx.QueryRow(r.Context(), `
 			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
 		`, user.ID, providerID).Scan(&existingID)
 		if err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to lookup review after conflict")
+			WriteServerError(w, r, "failed to lookup review after conflict", err)
 			return
 		}
 	} else if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to lookup review")
+		WriteServerError(w, r, "failed to lookup review", err)
 		return
 	}
 
@@ -530,7 +530,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		req.Comment, serviceDate, existingID,
 	).Scan(&status, &updatedAt)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to update review")
+		WriteServerError(w, r, "failed to update review", err)
 		return
 	}
 
@@ -548,12 +548,12 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			"is_anonymous": req.IsAnonymous,
 		},
 	}); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		WriteServerError(w, r, "failed to record audit event", err)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to commit")
+		WriteServerError(w, r, "failed to commit", err)
 		return
 	}
 
@@ -615,7 +615,7 @@ func (h *ProvidersHandler) MyReview(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusNotFound, "review not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to lookup review")
+		WriteServerError(w, r, "failed to lookup review", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, review)

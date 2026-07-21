@@ -131,7 +131,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to hash password")
+		WriteServerError(w, r, "failed to hash password", err)
 		return
 	}
 
@@ -149,12 +149,12 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusConflict, "email already registered")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to create user")
+		WriteServerError(w, r, "failed to create user", err)
 		return
 	}
 
 	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to create session")
+		WriteServerError(w, r, "failed to create session", err)
 		return
 	}
 	WriteJSON(w, http.StatusCreated, userResponse{User: &user})
@@ -187,7 +187,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to lookup user")
+		WriteServerError(w, r, "failed to lookup user", err)
 		return
 	}
 
@@ -197,7 +197,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to create session")
+		WriteServerError(w, r, "failed to create session", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, userResponse{User: &user})
@@ -223,7 +223,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		WriteError(w, http.StatusServiceUnavailable, "service unavailable")
+		WriteServiceUnavailable(w, r, "service unavailable", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, userResponse{User: user})
@@ -260,7 +260,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		SELECT password_hash FROM users WHERE id = $1
 	`, user.ID).Scan(&passwordHash)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to lookup user")
+		WriteServerError(w, r, "failed to lookup user", err)
 		return
 	}
 	if !auth.CheckPassword(passwordHash, req.CurrentPassword) {
@@ -270,7 +270,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to hash password")
+		WriteServerError(w, r, "failed to hash password", err)
 		return
 	}
 
@@ -283,12 +283,12 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword,
 	)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to update password")
+		WriteServerError(w, r, "failed to update password", err)
 		return
 	}
 
 	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to create session")
+		WriteServerError(w, r, "failed to create session", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, userResponse{User: user})

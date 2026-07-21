@@ -83,7 +83,7 @@ func (h *AdminHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		ORDER BY p.created_at ASC
 	`, h.condoID, status)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list providers")
+		WriteServerError(w, r, "failed to list providers", err)
 		return
 	}
 	defer rows.Close()
@@ -96,13 +96,13 @@ func (h *AdminHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 			&item.CreatedAt, &item.UpdatedAt, &item.CreatorEmail, &item.CreatorDisplayName,
 			&item.ReviewedBy, &item.ReviewedAt, &item.ReviewerEmail, &item.ReviewerDisplayName,
 		); err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to scan provider")
+			WriteServerError(w, r, "failed to scan provider", err)
 			return
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list providers")
+		WriteServerError(w, r, "failed to list providers", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, items)
@@ -128,7 +128,7 @@ func (h *AdminHandler) setProviderStatus(w http.ResponseWriter, r *http.Request,
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		WriteServerError(w, r, "failed to begin transaction", err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -142,7 +142,7 @@ func (h *AdminHandler) setProviderStatus(w http.ResponseWriter, r *http.Request,
 			WriteError(w, http.StatusNotFound, "provider not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to lookup provider")
+		WriteServerError(w, r, "failed to lookup provider", err)
 		return
 	}
 
@@ -164,7 +164,7 @@ func (h *AdminHandler) setProviderStatus(w http.ResponseWriter, r *http.Request,
 			WriteError(w, http.StatusNotFound, "provider not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to update provider")
+		WriteServerError(w, r, "failed to update provider", err)
 		return
 	}
 
@@ -183,12 +183,12 @@ func (h *AdminHandler) setProviderStatus(w http.ResponseWriter, r *http.Request,
 			"name":        item.Name,
 		},
 	}); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		WriteServerError(w, r, "failed to record audit event", err)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to commit")
+		WriteServerError(w, r, "failed to commit", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, item)
@@ -225,7 +225,7 @@ func (h *AdminHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
 		ORDER BY r.created_at ASC
 	`, h.condoID, status)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list reviews")
+		WriteServerError(w, r, "failed to list reviews", err)
 		return
 	}
 	defer rows.Close()
@@ -239,13 +239,13 @@ func (h *AdminHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
 			&item.Comment, &item.ServiceDate, &item.Status, &item.CreatedAt, &item.UpdatedAt,
 			&item.ReviewedBy, &item.ReviewedAt, &item.ReviewerEmail, &item.ReviewerDisplayName,
 		); err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to scan review")
+			WriteServerError(w, r, "failed to scan review", err)
 			return
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list reviews")
+		WriteServerError(w, r, "failed to list reviews", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, items)
@@ -271,7 +271,7 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		WriteServerError(w, r, "failed to begin transaction", err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -288,7 +288,7 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 			WriteError(w, http.StatusNotFound, "review not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to lookup review")
+		WriteServerError(w, r, "failed to lookup review", err)
 		return
 	}
 
@@ -313,7 +313,7 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 			WriteError(w, http.StatusNotFound, "review not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to update review")
+		WriteServerError(w, r, "failed to update review", err)
 		return
 	}
 
@@ -333,12 +333,12 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 			"provider_name": item.ProviderName,
 		},
 	}); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		WriteServerError(w, r, "failed to record audit event", err)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to commit")
+		WriteServerError(w, r, "failed to commit", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, item)
@@ -369,7 +369,7 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		ORDER BY display_name ASC, email ASC
 	`, h.condoID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list users")
+		WriteServerError(w, r, "failed to list users", err)
 		return
 	}
 	defer rows.Close()
@@ -380,13 +380,13 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(
 			&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.MustChangePassword, &item.CreatedAt,
 		); err != nil {
-			WriteError(w, http.StatusInternalServerError, "failed to scan user")
+			WriteServerError(w, r, "failed to scan user", err)
 			return
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to list users")
+		WriteServerError(w, r, "failed to list users", err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, items)
@@ -412,18 +412,18 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	tempPassword, err := auth.GenerateTemporaryPassword()
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to generate password")
+		WriteServerError(w, r, "failed to generate password", err)
 		return
 	}
 	hash, err := auth.HashPassword(tempPassword)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to hash password")
+		WriteServerError(w, r, "failed to hash password", err)
 		return
 	}
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		WriteServerError(w, r, "failed to begin transaction", err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -442,12 +442,12 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusNotFound, "user not found")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "failed to reset password")
+		WriteServerError(w, r, "failed to reset password", err)
 		return
 	}
 
 	if _, err := tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id = $1`, id); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to revoke sessions")
+		WriteServerError(w, r, "failed to revoke sessions", err)
 		return
 	}
 
@@ -461,12 +461,12 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 			"target_email": item.Email,
 		},
 	}); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		WriteServerError(w, r, "failed to record audit event", err)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		WriteError(w, http.StatusInternalServerError, "failed to commit password reset")
+		WriteServerError(w, r, "failed to commit password reset", err)
 		return
 	}
 

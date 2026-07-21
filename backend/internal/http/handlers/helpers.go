@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/gmalfatti/indica/backend/internal/logging"
 )
 
 const maxJSONBody = 1 << 20 // 1 MiB
@@ -16,6 +19,20 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 
 func WriteError(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, map[string]string{"error": msg})
+}
+
+// WriteServerError logs the underlying error (kept off the client response) and returns a 500.
+func WriteServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
+	attrs := append(logging.RequestAttrs(r), "err", err)
+	slog.ErrorContext(r.Context(), publicMsg, attrs...)
+	WriteError(w, http.StatusInternalServerError, publicMsg)
+}
+
+// WriteServiceUnavailable logs the error and returns 503.
+func WriteServiceUnavailable(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
+	attrs := append(logging.RequestAttrs(r), "err", err)
+	slog.ErrorContext(r.Context(), publicMsg, attrs...)
+	WriteError(w, http.StatusServiceUnavailable, publicMsg)
 }
 
 func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {

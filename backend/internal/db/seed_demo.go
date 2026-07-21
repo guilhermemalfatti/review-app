@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -256,6 +256,6 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 		return fmt.Errorf("commit demo seed: %w", err)
 	}
 
-	log.Printf("demo seed: +%d providers, +%d reviews", createdProviders, createdReviews)
+	slog.Info("demo seed complete", "providers", createdProviders, "reviews", createdReviews)
 	return nil
 }

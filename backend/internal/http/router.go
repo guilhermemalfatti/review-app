@@ -32,8 +32,8 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(chimw.Logger)
-	r.Use(chimw.Recoverer)
+	r.Use(middleware.RequestLogger)
+	r.Use(middleware.Recoverer(handlers.WriteError))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{d.CORSOrigin},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
