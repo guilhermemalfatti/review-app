@@ -16,6 +16,9 @@ import (
 
 const CookieName = "session"
 
+// DummyPasswordHash is a valid bcrypt hash used to mitigate timing leaks when a user is missing.
+const DummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
 type User struct {
 	ID                 uuid.UUID `json:"id"`
 	Email              string    `json:"email"`
@@ -107,14 +110,22 @@ func (s *SessionStore) DeleteAllForUser(ctx context.Context, userID uuid.UUID) e
 
 func GenerateTemporaryPassword() (string, error) {
 	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
-	b := make([]byte, 12)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+	const n = len(alphabet)
+	const maxUnbiased = 256 - (256 % n)
+
+	out := make([]byte, 12)
+	for i := 0; i < len(out); {
+		var b [1]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			return "", err
+		}
+		if int(b[0]) >= maxUnbiased {
+			continue
+		}
+		out[i] = alphabet[int(b[0])%n]
+		i++
 	}
-	for i := range b {
-		b[i] = alphabet[int(b[i])%len(alphabet)]
-	}
-	return string(b), nil
+	return string(out), nil
 }
 
 func (s *SessionStore) DeleteExpired(ctx context.Context) error {

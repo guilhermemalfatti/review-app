@@ -1,5 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AuthProvider, useAuth } from './auth/AuthContext'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider, MustChangePasswordGate } from './auth/AuthContext'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminPage } from './pages/AdminPage'
@@ -11,23 +11,12 @@ import { ReviewPage } from './pages/ReviewPage'
 import { SignupPage } from './pages/SignupPage'
 import { SuggestProviderPage } from './pages/SuggestProviderPage'
 
-function PasswordGate({ children }: { children: React.ReactNode }) {
-  const { user, loading, mustChangePassword } = useAuth()
-  const location = useLocation()
-
-  if (loading) return children
-  if (user && mustChangePassword && location.pathname !== '/change-password') {
-    return <Navigate to="/change-password" replace />
-  }
-  return children
-}
-
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Layout>
-          <PasswordGate>
+          <MustChangePasswordGate>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/providers/new" element={
@@ -44,7 +33,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/change-password" element={
-                <ProtectedRoute allowPasswordChange>
+                <ProtectedRoute>
                   <ChangePasswordPage />
                 </ProtectedRoute>
               } />
@@ -55,7 +44,7 @@ export default function App() {
               } />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </PasswordGate>
+          </MustChangePasswordGate>
         </Layout>
       </AuthProvider>
     </BrowserRouter>

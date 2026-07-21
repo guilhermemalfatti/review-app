@@ -4,11 +4,18 @@ import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
 
+function safeRedirectPath(from: unknown): string {
+  if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')) {
+    return from
+  }
+  return '/'
+}
+
 export function LoginPage() {
   const { login, user, loading, mustChangePassword } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from ?? '/'
+  const from = safeRedirectPath((location.state as { from?: string } | null)?.from)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

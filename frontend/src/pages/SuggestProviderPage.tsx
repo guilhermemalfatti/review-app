@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
-import { CATEGORIES } from '../api/types'
+import { CATEGORIES } from '../config'
 import { StatusMessage } from '../components/StatusMessage'
 
 export function SuggestProviderPage() {

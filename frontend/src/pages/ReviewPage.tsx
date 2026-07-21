@@ -13,6 +13,7 @@ export function ReviewPage() {
   const [provider, setProvider] = useState<ProviderDetail | null>(null)
   const [existingReview, setExistingReview] = useState<MyReview | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [reviewLoadError, setReviewLoadError] = useState<string | null>(null)
   const [loadingProvider, setLoadingProvider] = useState(true)
 
   const [recommend, setRecommend] = useState(true)
@@ -43,6 +44,7 @@ export function ReviewPage() {
           const mine = await api.getMyReview(id!)
           if (cancelled) return
           setExistingReview(mine)
+          setReviewLoadError(null)
           setRecommend(mine.recommend)
           setScorePrice(scoreToInput(mine.score_price))
           setScoreQuality(scoreToInput(mine.score_quality))
@@ -52,9 +54,17 @@ export function ReviewPage() {
           setShowName(!mine.is_anonymous)
         } catch (err) {
           if (err instanceof ApiError && err.status === 404) {
-            if (!cancelled) setExistingReview(null)
+            if (!cancelled) {
+              setExistingReview(null)
+              setReviewLoadError(null)
+            }
           } else if (!cancelled) {
             setExistingReview(null)
+            setReviewLoadError(
+              err instanceof ApiError
+                ? err.message
+                : 'Não foi possível carregar sua indicação.',
+            )
           }
         }
       } catch (err) {
@@ -178,6 +188,8 @@ export function ReviewPage() {
           aprovação.
         </StatusMessage>
       )}
+
+      {reviewLoadError && <StatusMessage tone="error">{reviewLoadError}</StatusMessage>}
 
       {success && (
         <StatusMessage tone="success">

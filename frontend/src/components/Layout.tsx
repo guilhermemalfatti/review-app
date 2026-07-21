@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { COMMUNITY_NAME } from '../config'
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, logout } = useAuth()
@@ -58,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <footer className="site-footer">
         <p>
-          Indica · recomendações entre vizinhos · <span>Cantegril</span>
+          Indica · recomendações entre vizinhos · <span>{COMMUNITY_NAME}</span>
         </p>
       </footer>
     </div>

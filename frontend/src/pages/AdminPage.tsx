@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError, unwrapList } from '../api/client'
+import { api, ApiError } from '../api/client'
 import type { AdminUser, PendingProvider, PendingReview } from '../api/types'
 import { StatusMessage } from '../components/StatusMessage'
 
@@ -14,23 +14,23 @@ export function AdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [tempPasswordNotice, setTempPasswordNotice] = useState<{
     name: string
     password: string
   } | null>(null)
 
-  const loadQueues = useCallback(async () => {
+  const loadTab = useCallback(async (active: AdminTab) => {
     setLoading(true)
     setError(null)
     try {
-      const [providersData, reviewsData, usersData] = await Promise.all([
-        api.adminPendingProviders(),
-        api.adminPendingReviews(),
-        api.adminListUsers(),
-      ])
-      setProviders(unwrapList(providersData))
-      setReviews(unwrapList(reviewsData))
-      setUsers(unwrapList(usersData))
+      if (active === 'providers') {
+        setProviders(await api.adminPendingProviders())
+      } else if (active === 'reviews') {
+        setReviews(await api.adminPendingReviews())
+      } else {
+        setUsers(await api.adminListUsers())
+      }
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -43,15 +43,29 @@ export function AdminPage() {
   }, [])
 
   useEffect(() => {
-    void loadQueues()
-  }, [loadQueues])
+    void loadTab(tab)
+  }, [tab, loadTab])
 
-  async function runAction(id: string, action: () => Promise<void>) {
+  useEffect(() => {
+    if (!tempPasswordNotice) return
+    setCopied(false)
+    const timer = window.setTimeout(() => setTempPasswordNotice(null), 60_000)
+    return () => window.clearTimeout(timer)
+  }, [tempPasswordNotice])
+
+  function switchTab(next: AdminTab) {
+    setTab(next)
+    setTempPasswordNotice(null)
+    setActionError(null)
+    setCopied(false)
+  }
+
+  async function runAction(id: string, action: () => Promise<void>, onSuccess: () => void) {
     setBusyId(id)
     setActionError(null)
     try {
       await action()
-      await loadQueues()
+      onSuccess()
     } catch (err) {
       setActionError(
         err instanceof ApiError ? err.message : 'Não deu certo. Tente de novo.',
@@ -76,13 +90,25 @@ export function AdminPage() {
         name: result.user.display_name,
         password: result.temporary_password,
       })
-      await loadQueues()
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, ...result.user } : u)),
+      )
     } catch (err) {
       setActionError(
         err instanceof ApiError ? err.message : 'Não deu certo. Tente de novo.',
       )
     } finally {
       setBusyId(null)
+    }
+  }
+
+  async function handleCopyPassword() {
+    if (!tempPasswordNotice) return
+    try {
+      await navigator.clipboard.writeText(tempPasswordNotice.password)
+      setCopied(true)
+    } catch {
+      setActionError('Não foi possível copiar a senha.')
     }
   }
 
@@ -99,11 +125,7 @@ export function AdminPage() {
           role="tab"
           aria-selected={tab === 'providers'}
           className={`admin-tab ${tab === 'providers' ? 'admin-tab--active' : ''}`}
-          onClick={() => {
-            setTab('providers')
-            setTempPasswordNotice(null)
-            setActionError(null)
-          }}
+          onClick={() => switchTab('providers')}
         >
           Novos prestadores
           <span className="admin-tab__count">{providers.length}</span>
@@ -113,11 +135,7 @@ export function AdminPage() {
           role="tab"
           aria-selected={tab === 'reviews'}
           className={`admin-tab ${tab === 'reviews' ? 'admin-tab--active' : ''}`}
-          onClick={() => {
-            setTab('reviews')
-            setTempPasswordNotice(null)
-            setActionError(null)
-          }}
+          onClick={() => switchTab('reviews')}
         >
           Novas indicações
           <span className="admin-tab__count">{reviews.length}</span>
@@ -127,10 +145,7 @@ export function AdminPage() {
           role="tab"
           aria-selected={tab === 'users'}
           className={`admin-tab ${tab === 'users' ? 'admin-tab--active' : ''}`}
-          onClick={() => {
-            setTab('users')
-            setActionError(null)
-          }}
+          onClick={() => switchTab('users')}
         >
           Moradores
           <span className="admin-tab__count">{users.length}</span>
@@ -142,6 +157,10 @@ export function AdminPage() {
         <StatusMessage tone="success">
           Nova senha de <strong>{tempPasswordNotice.name}</strong>:{' '}
           <code className="temp-password">{tempPasswordNotice.password}</code>
+          {' '}
+          <button type="button" className="btn btn--ghost" onClick={() => void handleCopyPassword()}>
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
           <br />
           Anote e passe para a pessoa. Ela deve trocar ao entrar.
         </StatusMessage>
@@ -176,7 +195,11 @@ export function AdminPage() {
                       className="btn btn--primary btn--block"
                       disabled={busyId === item.id}
                       onClick={() =>
-                        void runAction(item.id, () => api.adminApproveProvider(item.id))
+                        void runAction(
+                          item.id,
+                          () => api.adminApproveProvider(item.id),
+                          () => setProviders((prev) => prev.filter((p) => p.id !== item.id)),
+                        )
                       }
                     >
                       Sim, aprovar
@@ -186,7 +209,11 @@ export function AdminPage() {
                       className="btn btn--ghost btn--block"
                       disabled={busyId === item.id}
                       onClick={() =>
-                        void runAction(item.id, () => api.adminRejectProvider(item.id))
+                        void runAction(
+                          item.id,
+                          () => api.adminRejectProvider(item.id),
+                          () => setProviders((prev) => prev.filter((p) => p.id !== item.id)),
+                        )
                       }
                     >
                       Não, rejeitar
@@ -233,7 +260,11 @@ export function AdminPage() {
                         className="btn btn--primary btn--block"
                         disabled={busyId === item.id}
                         onClick={() =>
-                          void runAction(item.id, () => api.adminApproveReview(item.id))
+                          void runAction(
+                            item.id,
+                            () => api.adminApproveReview(item.id),
+                            () => setReviews((prev) => prev.filter((r) => r.id !== item.id)),
+                          )
                         }
                       >
                         Sim, aprovar
@@ -243,7 +274,11 @@ export function AdminPage() {
                         className="btn btn--ghost btn--block"
                         disabled={busyId === item.id}
                         onClick={() =>
-                          void runAction(item.id, () => api.adminRejectReview(item.id))
+                          void runAction(
+                            item.id,
+                            () => api.adminRejectReview(item.id),
+                            () => setReviews((prev) => prev.filter((r) => r.id !== item.id)),
+                          )
                         }
                       >
                         Não, rejeitar

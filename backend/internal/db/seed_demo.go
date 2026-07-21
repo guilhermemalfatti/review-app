@@ -166,7 +166,7 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 	residentIDs := make(map[string]uuid.UUID, len(residents))
 	for _, r := range residents {
 		var id uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, r.email).Scan(&id)
+		err := tx.QueryRow(ctx, `SELECT id FROM users WHERE condo_id = $1 AND email = $2`, condoID, r.email).Scan(&id)
 		if err == pgx.ErrNoRows {
 			err = tx.QueryRow(ctx, `
 				INSERT INTO users (condo_id, email, password_hash, display_name, role)
@@ -256,6 +256,6 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 		return fmt.Errorf("commit demo seed: %w", err)
 	}
 
-	log.Printf("demo seed: +%d providers, +%d reviews (demo residents password: demo12345)", createdProviders, createdReviews)
+	log.Printf("demo seed: +%d providers, +%d reviews", createdProviders, createdReviews)
 	return nil
 }

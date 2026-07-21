@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const maxJSONBody = 1 << 20 // 1 MiB
+
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -16,7 +18,8 @@ func WriteError(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, map[string]string{"error": msg})
 }
 
-func DecodeJSON(r *http.Request, dst any) error {
+func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
 	dec := json.NewDecoder(r.Body)
 	return dec.Decode(dst)
 }

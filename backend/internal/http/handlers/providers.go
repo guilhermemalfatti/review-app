@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -163,6 +164,9 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		item.Aggregates = scanAggregates(hired, recommend, notRecommend, avgPrice, avgQuality, avgDeadline, avgOverall, lastService)
+		if auth.UserFromContext(r.Context()) == nil {
+			item.Phone = ""
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -215,6 +219,9 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	detail.Aggregates = scanAggregates(hired, recommend, notRecommend, avgPrice, avgQuality, avgDeadline, avgOverall, lastService)
+	if user == nil {
+		detail.Phone = ""
+	}
 	detail.Reviews = []PublicReview{}
 
 	rows, err := h.pool.Query(r.Context(), `
@@ -269,7 +276,7 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req createProviderRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	if err := DecodeJSON(w, r, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -327,7 +334,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req createReviewRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	if err := DecodeJSON(w, r, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -384,27 +391,36 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			req.ScorePrice, req.ScoreQuality, req.ScoreDeadline,
 			req.Comment, serviceDate,
 		).Scan(&id, &status, &createdAt, &updatedAt)
-		if err != nil {
+		if err == nil {
+			WriteJSON(w, http.StatusCreated, map[string]any{
+				"id":             id,
+				"provider_id":    providerID,
+				"is_anonymous":   req.IsAnonymous,
+				"recommend":      req.Recommend,
+				"score_price":    req.ScorePrice,
+				"score_quality":  req.ScoreQuality,
+				"score_deadline": req.ScoreDeadline,
+				"comment":        req.Comment,
+				"service_date":   req.ServiceDate,
+				"status":         status,
+				"created_at":     createdAt,
+				"updated_at":     updatedAt,
+			})
+			return
+		}
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
 			WriteError(w, http.StatusInternalServerError, "failed to create review")
 			return
 		}
-		WriteJSON(w, http.StatusCreated, map[string]any{
-			"id":             id,
-			"provider_id":    providerID,
-			"is_anonymous":   req.IsAnonymous,
-			"recommend":      req.Recommend,
-			"score_price":    req.ScorePrice,
-			"score_quality":  req.ScoreQuality,
-			"score_deadline": req.ScoreDeadline,
-			"comment":        req.Comment,
-			"service_date":   req.ServiceDate,
-			"status":         status,
-			"created_at":     createdAt,
-			"updated_at":     updatedAt,
-		})
-		return
-	}
-	if err != nil {
+		err = h.pool.QueryRow(r.Context(), `
+			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
+		`, user.ID, providerID).Scan(&existingID)
+		if err != nil {
+			WriteError(w, http.StatusInternalServerError, "failed to lookup review after conflict")
+			return
+		}
+	} else if err != nil {
 		WriteError(w, http.StatusInternalServerError, "failed to lookup review")
 		return
 	}

@@ -1,4 +1,4 @@
-import { CATEGORIES } from '../api/types'
+import { CATEGORIES } from '../config'
 
 interface CategoryChipsProps {
   value: string

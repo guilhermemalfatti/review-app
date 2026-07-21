@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gmalfatti/indica/backend/internal/auth"
+	"github.com/jackc/pgx/v5"
 )
 
 type ErrorWriter func(w http.ResponseWriter, status int, msg string)
@@ -18,7 +20,11 @@ func RequireAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Ha
 			}
 			user, err := sessions.GetUser(r.Context(), c.Value)
 			if err != nil {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				if errors.Is(err, pgx.ErrNoRows) {
+					writeErr(w, http.StatusUnauthorized, "unauthorized")
+					return
+				}
+				writeErr(w, http.StatusServiceUnavailable, "service unavailable")
 				return
 			}
 			ctx := auth.WithUser(r.Context(), user)
@@ -55,12 +61,18 @@ func RequirePasswordChanged(writeErr ErrorWriter) func(http.Handler) http.Handle
 }
 
 // OptionalAuth loads the user if a valid session cookie is present; otherwise continues anonymously.
-func OptionalAuth(sessions *auth.SessionStore) func(http.Handler) http.Handler {
+func OptionalAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := r.Cookie(auth.CookieName)
 			if err == nil && c.Value != "" {
-				if user, err := sessions.GetUser(r.Context(), c.Value); err == nil {
+				user, err := sessions.GetUser(r.Context(), c.Value)
+				if err != nil {
+					if !errors.Is(err, pgx.ErrNoRows) {
+						writeErr(w, http.StatusServiceUnavailable, "service unavailable")
+						return
+					}
+				} else {
 					r = r.WithContext(auth.WithUser(r.Context(), user))
 				}
 			}

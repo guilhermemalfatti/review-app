@@ -7,12 +7,14 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { api } from '../api/client'
+import { Navigate, useLocation } from 'react-router-dom'
+import { api, ApiError } from '../api/client'
 import type { ChangePasswordPayload, LoginPayload, SignupPayload, User } from '../api/types'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
+  authError: string | null
   isAdmin: boolean
   mustChangePassword: boolean
   login: (payload: LoginPayload) => Promise<User>
@@ -24,16 +26,27 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const PASSWORD_CHANGE_EXEMPT = new Set(['/change-password', '/login', '/logout'])
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
       const data = await api.me()
       setUser(data.user)
-    } catch {
-      setUser(null)
+      setAuthError(null)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setUser(null)
+        setAuthError(null)
+      } else {
+        setAuthError(
+          err instanceof ApiError ? err.message : 'Não foi possível verificar a sessão.',
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -46,12 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (payload: LoginPayload) => {
     const data = await api.login(payload)
     setUser(data.user)
+    setAuthError(null)
     return data.user
   }, [])
 
   const signup = useCallback(async (payload: SignupPayload) => {
     const data = await api.signup(payload)
     setUser(data.user)
+    setAuthError(null)
     return data.user
   }, [])
 
@@ -60,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout()
     } finally {
       setUser(null)
+      setAuthError(null)
     }
   }, [])
 
@@ -72,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
+      authError,
       isAdmin: user?.role === 'admin',
       mustChangePassword: Boolean(user?.must_change_password),
       login,
@@ -80,10 +97,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePassword,
       refresh,
     }),
-    [user, loading, login, signup, logout, changePassword, refresh],
+    [user, loading, authError, login, signup, logout, changePassword, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+/** Single gate: redirect when logged-in user must change password. */
+export function MustChangePasswordGate({ children }: { children: ReactNode }) {
+  const { user, loading, mustChangePassword } = useAuth()
+  const location = useLocation()
+
+  if (loading) return children
+  if (
+    user &&
+    mustChangePassword &&
+    !PASSWORD_CHANGE_EXEMPT.has(location.pathname)
+  ) {
+    return <Navigate to="/change-password" replace />
+  }
+  return children
 }
 
 export function useAuth() {

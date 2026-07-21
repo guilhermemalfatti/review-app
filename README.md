@@ -21,15 +21,18 @@ Defaults:
 | Variable | Default |
 |---|---|
 | `DATABASE_URL` | `postgres://indica:indica@localhost:5432/indica?sslmode=disable` |
-| `SESSION_SECRET` | `dev-secret-change-me` |
+| `APP_ENV` | `development` (`production` enables fail-closed checks) |
+| `COOKIE_SECURE` | unset → `true` when `APP_ENV=production`, else `false` |
 | `INVITE_CODE` | `CANTEGRIL2026` |
 | `CORS_ORIGIN` | `http://localhost:5173` |
 | `PORT` | `8080` |
 | `ADMIN_EMAIL` | `admin@cantegril.local` |
-| `ADMIN_PASSWORD` | `admin` |
+| `ADMIN_PASSWORD` | `admin123` |
 | `ADMIN_DISPLAY_NAME` | `Admin` |
 | `SEED_DEMO` | `false` (`true` loads sample providers + reviews) |
-| `RESET_DB` | `false` (`true` wipes all data on startup, then runs seeders; set back to `false` after) |
+| `RESET_DB` | `false` (`true` wipes all data on startup, then runs seeders; refused in production) |
+
+In production (`APP_ENV=production`), the API refuses weak defaults (`admin123`, `CANTEGRIL2026`), requires `COOKIE_SECURE=true`, and blocks `RESET_DB`.
 
 ## 2. Start Postgres
 
@@ -43,7 +46,7 @@ Wait until healthy (`docker compose ps`).
 
 ## 3. Run the API
 
-Migrations and seed (Cantegril condo + admin user) run automatically on startup.
+Migrations and seed (Cantegril condo + admin user) run automatically on startup. Seed is create-once: existing condo invite codes and admin passwords are not overwritten on restart.
 
 ```bash
 cd backend
@@ -74,6 +77,13 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the Go server (cookie sessions).
 
+## CSRF
+
+Mutating requests (`POST` / `PUT` / `PATCH` / `DELETE` under `/api/*`) require a CSRF token:
+
+1. `GET /api/auth/csrf` → sets a non-HttpOnly `csrf` cookie and returns `{"csrf_token":"..."}`
+2. Send the same value in the `X-CSRF-Token` header on mutating requests (with `credentials: 'include'`)
+
 ## Default credentials
 
 - **Invite code (signup):** `CANTEGRIL2026`
@@ -87,20 +97,21 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 2. Restart the API (`go run ./cmd/server`)
 3. Set `RESET_DB=false` again so the next restart does not wipe data
 
-`RESET_DB` truncates all tables, then runs the condo/admin seeder and the demo seeder (15 providers, many positive and negative reviews).
+`RESET_DB` truncates all tables, then runs the condo/admin seeder and the demo seeder (15 providers, many positive and negative reviews). Only allowed when `APP_ENV` is not `production`.
 
 ## API overview
 
 | Method | Path | Auth |
 |---|---|---|
 | GET | `/api/health` | public |
+| GET | `/api/auth/csrf` | public (issues CSRF cookie + token) |
 | POST | `/api/auth/signup` | public (invite code) |
 | POST | `/api/auth/login` | public |
 | POST | `/api/auth/logout` | optional |
 | GET | `/api/auth/me` | session |
 | POST | `/api/auth/change-password` | session |
-| GET | `/api/providers` | public (approved only) |
-| GET | `/api/providers/:id` | public (approved; admin can see others) |
+| GET | `/api/providers` | public (approved only; phone hidden unless logged in) |
+| GET | `/api/providers/:id` | public (approved; admin can see others; phone hidden unless logged in) |
 | POST | `/api/providers` | session |
 | POST | `/api/providers/:id/reviews` | session |
 | GET | `/api/admin/providers` | admin |
@@ -112,4 +123,4 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 | GET | `/api/admin/users` | admin |
 | POST | `/api/admin/users/:id/reset-password` | admin |
 
-Session cookie name: `session` (HTTP-only).
+Session cookie name: `session` (HTTP-only). CSRF cookie name: `csrf` (readable by JS).

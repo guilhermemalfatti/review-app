@@ -5,7 +5,10 @@ interface StatusMessageProps {
 
 export function StatusMessage({ tone = 'info', children }: StatusMessageProps) {
   return (
-    <div className={`status-message status-message--${tone}`} role="status">
+    <div
+      className={`status-message status-message--${tone}`}
+      role={tone === 'error' ? 'alert' : 'status'}
+    >
       {children}
     </div>
   )

@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
+import { COMMUNITY_NAME } from '../config'
 
 export function SignupPage() {
   const { signup, user, loading } = useAuth()
@@ -46,7 +47,7 @@ export function SignupPage() {
     <div className="page page--auth page-enter">
       <header className="auth-header">
         <h1>Criar conta</h1>
-        <p>Use o código de convite do Cantegril para entrar na comunidade Indica.</p>
+        <p>Use o código de convite do {COMMUNITY_NAME} para entrar na comunidade Indica.</p>
       </header>
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
@@ -80,7 +81,7 @@ export function SignupPage() {
             type="password"
             autoComplete="new-password"
             required
-            minLength={6}
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

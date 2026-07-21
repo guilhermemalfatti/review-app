@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError, unwrapList } from '../api/client'
+import { api, ApiError } from '../api/client'
 import type { ProviderListItem } from '../api/types'
 import { CategoryChips } from '../components/CategoryChips'
 import { ProviderRow } from '../components/ProviderRow'
 import { StatusMessage } from '../components/StatusMessage'
+import { COMMUNITY_NAME } from '../config'
 
 export function HomePage() {
   const [providers, setProviders] = useState<ProviderListItem[]>([])
@@ -25,7 +26,7 @@ export function HomePage() {
           q: q || undefined,
         })
         if (!cancelled) {
-          setProviders(unwrapList(data))
+          setProviders(data)
         }
       } catch (err) {
         if (!cancelled) {
@@ -54,7 +55,7 @@ export function HomePage() {
   return (
     <div className="page page--home page-enter">
       <section className="hero">
-        <p className="hero__eyebrow">Comunidade Cantegril</p>
+        <p className="hero__eyebrow">Comunidade {COMMUNITY_NAME}</p>
         <h1 className="hero__brand">Indica</h1>
         <p className="hero__lead">
           Prestadores de confiança indicados por quem mora ao lado, antes de

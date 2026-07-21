@@ -44,6 +44,9 @@ func main() {
 	defer pool.Close()
 
 	if cfg.ResetDB {
+		if cfg.AppEnv == "production" {
+			log.Fatalf("RESET_DB is not allowed in production")
+		}
 		log.Printf("RESET_DB=true — wiping all data, then re-seeding")
 		if err := db.ResetDB(ctx, pool); err != nil {
 			log.Fatalf("reset db: %v", err)
@@ -70,23 +73,35 @@ func main() {
 	sessions := auth.NewSessionStore(pool, cfg.SessionDays)
 	_ = sessions.DeleteExpired(ctx)
 
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := sessions.DeleteExpired(context.Background()); err != nil {
+				log.Printf("delete expired sessions: %v", err)
+			}
+		}
+	}()
+
 	router := httpserver.NewRouter(httpserver.Deps{
 		Pool:         pool,
 		Sessions:     sessions,
 		CondoID:      condoID,
 		InviteCode:   cfg.InviteCode,
 		CORSOrigin:   cfg.CORSOrigin,
-		CookieSecure: false,
+		CookieSecure: cfg.CookieSecure,
 	})
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
 	}
 
 	go func() {
-		log.Printf("listening on :%s", cfg.Port)
+		log.Printf("listening on :%s (env=%s)", cfg.Port, cfg.AppEnv)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server: %v", err)
 		}

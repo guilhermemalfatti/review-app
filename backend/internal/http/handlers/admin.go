@@ -283,8 +283,15 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	var item AdminUserItem
-	err = h.pool.QueryRow(r.Context(), `
+	err = tx.QueryRow(r.Context(), `
 		UPDATE users
 		SET password_hash = $1, must_change_password = true
 		WHERE id = $2 AND condo_id = $3
@@ -301,8 +308,13 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.pool.Exec(r.Context(), `DELETE FROM sessions WHERE user_id = $1`, id); err != nil {
+	if _, err := tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id = $1`, id); err != nil {
 		WriteError(w, http.StatusInternalServerError, "failed to revoke sessions")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to commit password reset")
 		return
 	}
 

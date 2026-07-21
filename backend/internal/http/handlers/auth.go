@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strings"
@@ -72,9 +74,27 @@ func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
+func inviteCodesEqual(a, b string) bool {
+	ha := sha256.Sum256([]byte(a))
+	hb := sha256.Sum256([]byte(b))
+	return subtle.ConstantTimeCompare(ha[:], hb[:]) == 1
+}
+
+func (h *AuthHandler) createExclusiveSession(w http.ResponseWriter, r *http.Request, userID uuid.UUID) error {
+	if err := h.sessions.DeleteAllForUser(r.Context(), userID); err != nil {
+		return err
+	}
+	token, expiresAt, err := h.sessions.Create(r.Context(), userID)
+	if err != nil {
+		return err
+	}
+	h.setSessionCookie(w, token, expiresAt)
+	return nil
+}
+
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	var req signupRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	if err := DecodeJSON(w, r, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -95,7 +115,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusBadRequest, "display_name is required")
 		return
 	}
-	if req.InviteCode != h.inviteCode {
+	if !inviteCodesEqual(req.InviteCode, h.inviteCode) {
 		WriteError(w, http.StatusForbidden, "invalid invite code")
 		return
 	}
@@ -124,18 +144,16 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, expiresAt, err := h.sessions.Create(r.Context(), user.ID)
-	if err != nil {
+	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
 		WriteError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
-	h.setSessionCookie(w, token, expiresAt)
 	WriteJSON(w, http.StatusCreated, userResponse{User: &user})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	if err := DecodeJSON(w, r, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -150,12 +168,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var passwordHash string
 	err := h.pool.QueryRow(r.Context(), `
 		SELECT id, email, display_name, role, condo_id, must_change_password, password_hash
-		FROM users WHERE email = $1
-	`, req.Email).Scan(
+		FROM users WHERE condo_id = $1 AND email = $2
+	`, h.condoID, req.Email).Scan(
 		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword, &passwordHash,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			_ = auth.CheckPassword(auth.DummyPasswordHash, req.Password)
 			WriteError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
@@ -168,12 +187,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, expiresAt, err := h.sessions.Create(r.Context(), user.ID)
-	if err != nil {
+	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
 		WriteError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
-	h.setSessionCookie(w, token, expiresAt)
 	WriteJSON(w, http.StatusOK, userResponse{User: &user})
 }
 
@@ -193,7 +210,11 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.sessions.GetUser(r.Context(), c.Value)
 	if err != nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		if errors.Is(err, pgx.ErrNoRows) {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		WriteError(w, http.StatusServiceUnavailable, "service unavailable")
 		return
 	}
 	WriteJSON(w, http.StatusOK, userResponse{User: user})
@@ -212,7 +233,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req changePasswordRequest
-	if err := DecodeJSON(r, &req); err != nil {
+	if err := DecodeJSON(w, r, &req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -257,5 +278,9 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.createExclusiveSession(w, r, user.ID); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to create session")
+		return
+	}
 	WriteJSON(w, http.StatusOK, userResponse{User: user})
 }

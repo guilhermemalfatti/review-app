@@ -26,24 +26,29 @@ func Seed(ctx context.Context, pool *pgxpool.Pool, cfg SeedConfig) (condoID uuid
 	}
 	defer tx.Rollback(ctx)
 
-	err = tx.QueryRow(ctx, `
+	_, err = tx.Exec(ctx, `
 		INSERT INTO condos (name, slug, invite_code)
 		VALUES ('Cantegril', $1, $2)
-		ON CONFLICT (slug) DO UPDATE SET invite_code = EXCLUDED.invite_code
-		RETURNING id
-	`, CondoSlug, cfg.InviteCode).Scan(&condoID)
+		ON CONFLICT (slug) DO NOTHING
+	`, CondoSlug, cfg.InviteCode)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("seed condo: %w", err)
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost)
+	err = tx.QueryRow(ctx, `SELECT id FROM condos WHERE slug = $1`, CondoSlug).Scan(&condoID)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("hash admin password: %w", err)
+		return uuid.Nil, fmt.Errorf("lookup condo: %w", err)
 	}
 
 	var existingID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, cfg.AdminEmail).Scan(&existingID)
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM users WHERE condo_id = $1 AND email = $2
+	`, condoID, cfg.AdminEmail).Scan(&existingID)
 	if err == pgx.ErrNoRows {
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return uuid.Nil, fmt.Errorf("hash admin password: %w", hashErr)
+		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO users (condo_id, email, password_hash, display_name, role)
 			VALUES ($1, $2, $3, $4, 'admin')
@@ -53,15 +58,6 @@ func Seed(ctx context.Context, pool *pgxpool.Pool, cfg SeedConfig) (condoID uuid
 		}
 	} else if err != nil {
 		return uuid.Nil, fmt.Errorf("lookup admin: %w", err)
-	} else {
-		_, err = tx.Exec(ctx, `
-			UPDATE users
-			SET password_hash = $1, display_name = $2, role = 'admin', condo_id = $3
-			WHERE id = $4
-		`, string(hash), cfg.AdminDisplayName, condoID, existingID)
-		if err != nil {
-			return uuid.Nil, fmt.Errorf("update admin: %w", err)
-		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

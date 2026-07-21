@@ -1,4 +1,4 @@
-export type UserRole = 'resident' | 'admin' | string
+export type UserRole = 'resident' | 'admin'
 
 export interface User {
   id: string
@@ -46,6 +46,15 @@ export interface ProviderListItem {
   phone: string | null
   notes: string | null
   aggregates: Aggregates
+}
+
+export interface CreatedProvider {
+  id: string
+  name: string
+  category: string
+  phone: string | null
+  notes: string | null
+  status: string
 }
 
 export interface Review {
@@ -136,17 +145,3 @@ export interface MyReview {
   created_at: string
   updated_at: string
 }
-
-export const CATEGORIES = [
-  'Eletricista',
-  'Encanador',
-  'Pintor',
-  'Pedreiro',
-  'Marceneiro',
-  'Jardineiro',
-  'Limpeza',
-  'Ar-condicionado',
-  'Outros',
-] as const
-
-export type Category = (typeof CATEGORIES)[number]

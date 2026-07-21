@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gmalfatti/indica/backend/internal/auth"
 	"github.com/gmalfatti/indica/backend/internal/http/handlers"
@@ -26,6 +27,7 @@ func NewRouter(d Deps) http.Handler {
 	authH := handlers.NewAuthHandler(d.Pool, d.Sessions, d.CondoID, d.InviteCode, d.CookieSecure)
 	providersH := handlers.NewProvidersHandler(d.Pool, d.CondoID)
 	adminH := handlers.NewAdminHandler(d.Pool, d.CondoID)
+	authLimiter := middleware.NewIPRateLimiter(20, 15*time.Minute, handlers.WriteError)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -40,21 +42,23 @@ func NewRouter(d Deps) http.Handler {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+	r.Use(middleware.CSRF(handlers.WriteError))
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		handlers.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Post("/signup", authH.Signup)
-		r.Post("/login", authH.Login)
+		r.Get("/csrf", middleware.CSRFTokenHandler(d.CookieSecure, handlers.WriteError))
+		r.With(authLimiter.Middleware).Post("/signup", authH.Signup)
+		r.With(authLimiter.Middleware).Post("/login", authH.Login)
 		r.Post("/logout", authH.Logout)
 		r.Get("/me", authH.Me)
 		r.With(middleware.RequireAuth(d.Sessions, handlers.WriteError)).Post("/change-password", authH.ChangePassword)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.OptionalAuth(d.Sessions))
+		r.Use(middleware.OptionalAuth(d.Sessions, handlers.WriteError))
 		r.Get("/api/providers", providersH.List)
 		r.Get("/api/providers/{id}", providersH.Get)
 	})

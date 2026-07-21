@@ -1,6 +1,7 @@
 import type {
   AdminUser,
   ChangePasswordPayload,
+  CreatedProvider,
   CreateProviderPayload,
   CreateReviewPayload,
   LoginPayload,
@@ -24,6 +25,8 @@ export class ApiError extends Error {
   }
 }
 
+let csrfToken: string | null = null
+
 async function parseError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { error?: string; message?: string }
@@ -33,18 +36,68 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
+function isMutatingMethod(method: string): boolean {
+  return method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
+}
+
+function isCsrfRelated(message: string): boolean {
+  return /csrf/i.test(message)
+}
+
+async function ensureCsrf(): Promise<string> {
+  if (csrfToken) return csrfToken
+
+  const response = await fetch('/api/auth/csrf', {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
   })
 
   if (!response.ok) {
     throw new ApiError(response.status, await parseError(response))
+  }
+
+  const data = (await response.json()) as { csrf_token: string }
+  csrfToken = data.csrf_token
+  return csrfToken
+}
+
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (init?.headers) {
+    const incoming = new Headers(init.headers)
+    incoming.forEach((value, key) => {
+      headers[key] = value
+    })
+  }
+
+  if (isMutatingMethod(method)) {
+    const token = await ensureCsrf()
+    headers['X-CSRF-Token'] = token
+  }
+
+  const response = await fetch(path, {
+    ...init,
+    method,
+    credentials: 'include',
+    headers,
+  })
+
+  if (!response.ok) {
+    const message = await parseError(response)
+    if (
+      response.status === 403 &&
+      isCsrfRelated(message) &&
+      isMutatingMethod(method) &&
+      !retried
+    ) {
+      csrfToken = null
+      await ensureCsrf()
+      return request<T>(path, init, true)
+    }
+    throw new ApiError(response.status, message)
   }
 
   if (response.status === 204) {
@@ -94,9 +147,7 @@ export const api = {
     if (params?.category) search.set('category', params.category)
     if (params?.q) search.set('q', params.q)
     const query = search.toString()
-    return request<ProviderListItem[] | { providers: ProviderListItem[] }>(
-      `/api/providers${query ? `?${query}` : ''}`,
-    )
+    return request<ProviderListItem[]>(`/api/providers${query ? `?${query}` : ''}`)
   },
 
   getProvider(id: string) {
@@ -104,7 +155,7 @@ export const api = {
   },
 
   createProvider(payload: CreateProviderPayload) {
-    return request<ProviderListItem>('/api/providers', {
+    return request<CreatedProvider>('/api/providers', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
@@ -122,9 +173,7 @@ export const api = {
   },
 
   adminPendingProviders() {
-    return request<PendingProvider[] | { providers: PendingProvider[] }>(
-      '/api/admin/providers?status=pending',
-    )
+    return request<PendingProvider[]>('/api/admin/providers?status=pending')
   },
 
   adminApproveProvider(id: string) {
@@ -136,9 +185,7 @@ export const api = {
   },
 
   adminPendingReviews() {
-    return request<PendingReview[] | { reviews: PendingReview[] }>(
-      '/api/admin/reviews?status=pending',
-    )
+    return request<PendingReview[]>('/api/admin/reviews?status=pending')
   },
 
   adminApproveReview(id: string) {
@@ -150,7 +197,7 @@ export const api = {
   },
 
   adminListUsers() {
-    return request<AdminUser[] | { users: AdminUser[] }>('/api/admin/users')
+    return request<AdminUser[]>('/api/admin/users')
   },
 
   adminResetPassword(id: string) {
@@ -158,14 +205,4 @@ export const api = {
       method: 'POST',
     })
   },
-}
-
-export function unwrapList<T>(
-  data: T[] | { providers: T[] } | { reviews: T[] } | { users: T[] },
-): T[] {
-  if (Array.isArray(data)) return data
-  if ('providers' in data) return data.providers
-  if ('reviews' in data) return data.reviews
-  if ('users' in data) return data.users
-  return []
 }
