@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gmalfatti/indica/backend/internal/auth"
@@ -16,14 +15,12 @@ func RequireAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := r.Cookie(auth.CookieName)
 			if err != nil || c.Value == "" {
-				fmt.Println("unauthorized - cookie", err)
 				writeErr(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 			user, err := sessions.GetUser(r.Context(), c.Value)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					fmt.Println("unauthorized - user", err)
 					writeErr(w, http.StatusUnauthorized, "unauthorized")
 					return
 				}

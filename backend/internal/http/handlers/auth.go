@@ -50,24 +50,33 @@ type userResponse struct {
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	sameSite := http.SameSiteLaxMode
+	if h.cookieSecure {
+		// Cross-site SPA (e.g. GitHub Pages → Render) needs None; Secure.
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 		Secure:   h.cookieSecure,
 		Expires:  expiresAt,
 	})
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
+	sameSite := http.SameSiteLaxMode
+	if h.cookieSecure {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 		Secure:   h.cookieSecure,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),

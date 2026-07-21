@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 )
@@ -46,7 +45,6 @@ func CSRF(writeErr ErrorWriter) func(http.Handler) http.Handler {
 			header := r.Header.Get(CSRFHeaderName)
 			if err != nil || cookie.Value == "" || header == "" ||
 				subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(header)) != 1 {
-				fmt.Println("csrf validation failed", err, cookie.Value, header)
 				writeErr(w, http.StatusForbidden, "csrf validation failed")
 				return
 			}
