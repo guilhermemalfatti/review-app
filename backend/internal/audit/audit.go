@@ -49,7 +49,7 @@ func Insert(ctx context.Context, db Execer, ev Event) error {
 	_, err = db.Exec(ctx, `
 		INSERT INTO audit_events (condo_id, actor_user_id, action, entity_type, entity_id, payload)
 		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-	`, ev.CondoID, ev.ActorUserID, ev.Action, ev.EntityType, ev.EntityID, raw)
+	`, ev.CondoID, ev.ActorUserID, ev.Action, ev.EntityType, ev.EntityID, string(raw))
 	if err != nil {
 		return fmt.Errorf("insert audit event: %w", err)
 	}
