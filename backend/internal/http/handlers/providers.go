@@ -40,7 +40,7 @@ type ProviderListItem struct {
 	ID         uuid.UUID  `json:"id"`
 	Name       string     `json:"name"`
 	Category   string     `json:"category"`
-	Phone      string     `json:"phone"`
+	Phone      *string    `json:"phone,omitempty"`
 	Notes      string     `json:"notes"`
 	Aggregates Aggregates `json:"aggregates"`
 }
@@ -61,10 +61,20 @@ type ProviderDetail struct {
 	ID         uuid.UUID      `json:"id"`
 	Name       string         `json:"name"`
 	Category   string         `json:"category"`
-	Phone      string         `json:"phone"`
+	Phone      *string        `json:"phone,omitempty"`
 	Notes      string         `json:"notes"`
 	Aggregates Aggregates     `json:"aggregates"`
 	Reviews    []PublicReview `json:"reviews"`
+}
+
+// phoneForViewer returns the phone only for authenticated viewers.
+// Anonymous responses omit the field so PII never leaves the API.
+func phoneForViewer(authenticated bool, phone string) *string {
+	if !authenticated {
+		return nil
+	}
+	p := phone
+	return &p
 }
 
 type createProviderRequest struct {
@@ -119,6 +129,7 @@ func scanAggregates(hired, recommend, notRecommend int, avgPrice, avgQuality, av
 func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	authenticated := auth.UserFromContext(r.Context()) != nil
 
 	args := []any{h.condoID}
 	where := `p.condo_id = $1 AND p.status = 'approved'`
@@ -135,8 +146,13 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 		argN++
 	}
 
+	phoneCol := "''::text"
+	if authenticated {
+		phoneCol = "p.phone"
+	}
+
 	rows, err := h.pool.Query(r.Context(), `
-		SELECT p.id, p.name, p.category, p.phone, p.notes,
+		SELECT p.id, p.name, p.category, `+phoneCol+`, p.notes,
 			`+aggregatesSelect+`
 		FROM providers p
 		LEFT JOIN reviews r ON r.provider_id = p.id AND r.status = 'approved'
@@ -153,21 +169,20 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 	items := make([]ProviderListItem, 0)
 	for rows.Next() {
 		var item ProviderListItem
+		var phone string
 		var avgPrice, avgQuality, avgDeadline, avgOverall *float64
 		var lastService *string
 		var hired, recommend, notRecommend int
 		if err := rows.Scan(
-			&item.ID, &item.Name, &item.Category, &item.Phone, &item.Notes,
+			&item.ID, &item.Name, &item.Category, &phone, &item.Notes,
 			&hired, &recommend, &notRecommend,
 			&avgPrice, &avgQuality, &avgDeadline, &avgOverall, &lastService,
 		); err != nil {
 			WriteError(w, http.StatusInternalServerError, "failed to scan provider")
 			return
 		}
+		item.Phone = phoneForViewer(authenticated, phone)
 		item.Aggregates = scanAggregates(hired, recommend, notRecommend, avgPrice, avgQuality, avgDeadline, avgOverall, lastService)
-		if auth.UserFromContext(r.Context()) == nil {
-			item.Phone = ""
-		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -185,23 +200,30 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := auth.UserFromContext(r.Context())
-	isAdmin := user != nil && user.Role == "admin"
+	authenticated := user != nil
+	isAdmin := authenticated && user.Role == "admin"
 
 	var detail ProviderDetail
+	var phone string
 	var status string
 	var avgPrice, avgQuality, avgDeadline, avgOverall *float64
 	var lastService *string
 	var hired, recommend, notRecommend int
 
+	phoneCol := "''::text"
+	if authenticated {
+		phoneCol = "p.phone"
+	}
+
 	err = h.pool.QueryRow(r.Context(), `
-		SELECT p.id, p.name, p.category, p.phone, p.notes, p.status,
+		SELECT p.id, p.name, p.category, `+phoneCol+`, p.notes, p.status,
 			`+aggregatesSelect+`
 		FROM providers p
 		LEFT JOIN reviews r ON r.provider_id = p.id AND r.status = 'approved'
 		WHERE p.id = $1 AND p.condo_id = $2
 		GROUP BY p.id
 	`, id, h.condoID).Scan(
-		&detail.ID, &detail.Name, &detail.Category, &detail.Phone, &detail.Notes, &status,
+		&detail.ID, &detail.Name, &detail.Category, &phone, &detail.Notes, &status,
 		&hired, &recommend, &notRecommend,
 		&avgPrice, &avgQuality, &avgDeadline, &avgOverall, &lastService,
 	)
@@ -219,10 +241,8 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	detail.Phone = phoneForViewer(authenticated, phone)
 	detail.Aggregates = scanAggregates(hired, recommend, notRecommend, avgPrice, avgQuality, avgDeadline, avgOverall, lastService)
-	if user == nil {
-		detail.Phone = ""
-	}
 	detail.Reviews = []PublicReview{}
 
 	rows, err := h.pool.Query(r.Context(), `
