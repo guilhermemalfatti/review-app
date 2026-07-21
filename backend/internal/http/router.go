@@ -42,7 +42,7 @@ func NewRouter(d Deps) http.Handler {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
-	r.Use(middleware.CSRF(handlers.WriteError))
+	r.Use(middleware.CSRF(d.CORSOrigin, handlers.WriteError))
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		handlers.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
