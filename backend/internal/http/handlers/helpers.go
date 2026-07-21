@@ -21,6 +21,40 @@ func WriteError(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, map[string]string{"error": msg})
 }
 
+// WriteUnauthorized logs why auth failed (no secrets) and returns 401.
+func WriteUnauthorized(w http.ResponseWriter, r *http.Request, reason string) {
+	cookieHeader := r.Header.Get("Cookie")
+	attrs := append(logging.RequestAttrs(r),
+		"reason", reason,
+		"origin", r.Header.Get("Origin"),
+		"referer", r.Header.Get("Referer"),
+		"user_agent", r.UserAgent(),
+		"has_cookie_header", cookieHeader != "",
+		"cookie_names", cookieNames(cookieHeader),
+	)
+	slog.Warn("unauthorized", attrs...)
+	WriteError(w, http.StatusUnauthorized, "unauthorized")
+}
+
+func cookieNames(header string) []string {
+	if header == "" {
+		return nil
+	}
+	parts := strings.Split(header, ";")
+	names := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		name, _, _ := strings.Cut(p, "=")
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // WriteServerError logs the underlying error (kept off the client response) and returns a 500.
 func WriteServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
 	attrs := append(logging.RequestAttrs(r), "err", err)

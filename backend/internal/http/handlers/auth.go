@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -51,9 +52,11 @@ type userResponse struct {
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
 	sameSite := http.SameSiteLaxMode
+	sameSiteLabel := "Lax"
 	if h.cookieSecure {
 		// Cross-site SPA (e.g. GitHub Pages → Render) needs None; Secure.
 		sameSite = http.SameSiteNoneMode
+		sameSiteLabel = "None"
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
@@ -64,6 +67,11 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expi
 		Secure:   h.cookieSecure,
 		Expires:  expiresAt,
 	})
+	slog.Info("session cookie set",
+		"secure", h.cookieSecure,
+		"same_site", sameSiteLabel,
+		"expires_at", expiresAt.UTC().Format(time.RFC3339),
+	)
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
@@ -214,13 +222,19 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(auth.CookieName)
 	if err != nil || c.Value == "" {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		reason := "session_cookie_missing"
+		if err == nil && c.Value == "" {
+			reason = "session_cookie_empty"
+		} else if err != nil && !errors.Is(err, http.ErrNoCookie) {
+			reason = "session_cookie_read_error"
+		}
+		WriteUnauthorized(w, r, reason)
 		return
 	}
 	user, err := h.sessions.GetUser(r.Context(), c.Value)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			WriteUnauthorized(w, r, "session_not_found_or_expired")
 			return
 		}
 		WriteServiceUnavailable(w, r, "service unavailable", err)
@@ -237,7 +251,7 @@ type changePasswordRequest struct {
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		WriteUnauthorized(w, r, "missing_user_in_context")
 		return
 	}
 

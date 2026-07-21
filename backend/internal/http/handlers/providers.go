@@ -292,7 +292,7 @@ func (h *ProvidersHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		WriteUnauthorized(w, r, "missing_user_in_context")
 		return
 	}
 
@@ -377,7 +377,7 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		WriteUnauthorized(w, r, "missing_user_in_context")
 		return
 	}
 
@@ -589,7 +589,7 @@ type MyReview struct {
 func (h *ProvidersHandler) MyReview(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		WriteUnauthorized(w, r, "missing_user_in_context")
 		return
 	}
 

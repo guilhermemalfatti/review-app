@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gmalfatti/indica/backend/internal/auth"
 	"github.com/gmalfatti/indica/backend/internal/logging"
@@ -17,12 +18,20 @@ func RequireAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := r.Cookie(auth.CookieName)
 			if err != nil || c.Value == "" {
+				reason := "session_cookie_missing"
+				if err == nil && c.Value == "" {
+					reason = "session_cookie_empty"
+				} else if err != nil && !errors.Is(err, http.ErrNoCookie) {
+					reason = "session_cookie_read_error"
+				}
+				logUnauthorized(r, reason, err)
 				writeErr(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 			user, err := sessions.GetUser(r.Context(), c.Value)
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
+					logUnauthorized(r, "session_not_found_or_expired", err)
 					writeErr(w, http.StatusUnauthorized, "unauthorized")
 					return
 				}
@@ -35,6 +44,41 @@ func RequireAuth(sessions *auth.SessionStore, writeErr ErrorWriter) func(http.Ha
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func logUnauthorized(r *http.Request, reason string, err error) {
+	cookieHeader := r.Header.Get("Cookie")
+	attrs := append(logging.RequestAttrs(r),
+		"reason", reason,
+		"origin", r.Header.Get("Origin"),
+		"referer", r.Header.Get("Referer"),
+		"user_agent", r.UserAgent(),
+		"has_cookie_header", cookieHeader != "",
+		"cookie_names", cookieNames(cookieHeader),
+	)
+	if err != nil {
+		attrs = append(attrs, "err", err)
+	}
+	slog.Warn("unauthorized", attrs...)
+}
+
+func cookieNames(header string) []string {
+	if header == "" {
+		return nil
+	}
+	parts := strings.Split(header, ";")
+	names := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		name, _, _ := strings.Cut(p, "=")
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func RequireAdmin(writeErr ErrorWriter) func(http.Handler) http.Handler {
