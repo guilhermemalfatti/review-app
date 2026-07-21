@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gmalfatti/indica/backend/internal/audit"
 	"github.com/gmalfatti/indica/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -295,16 +296,49 @@ func (h *ProvidersHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	var id uuid.UUID
 	var createdAt, updatedAt time.Time
 	var status string
-	err := h.pool.QueryRow(r.Context(), `
+	err = tx.QueryRow(r.Context(), `
 		INSERT INTO providers (condo_id, name, category, phone, notes, status, created_by)
 		VALUES ($1, $2, $3, $4, $5, 'pending', $6)
 		RETURNING id, status, created_at, updated_at
 	`, h.condoID, req.Name, req.Category, req.Phone, req.Notes, user.ID).Scan(&id, &status, &createdAt, &updatedAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			WriteError(w, http.StatusConflict, "a provider with this name already exists")
+			return
+		}
 		WriteError(w, http.StatusInternalServerError, "failed to create provider")
+		return
+	}
+
+	if err := audit.Insert(r.Context(), tx, audit.Event{
+		CondoID:     h.condoID,
+		ActorUserID: audit.Ptr(user.ID),
+		Action:      audit.ActionProviderCreated,
+		EntityType:  audit.EntityProvider,
+		EntityID:    id,
+		Payload: map[string]any{
+			"name":     req.Name,
+			"category": req.Category,
+			"status":   status,
+		},
+	}); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to commit")
 		return
 	}
 
@@ -371,8 +405,15 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	var existingID uuid.UUID
-	err = h.pool.QueryRow(r.Context(), `
+	err = tx.QueryRow(r.Context(), `
 		SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
 	`, user.ID, providerID).Scan(&existingID)
 
@@ -380,7 +421,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		var id uuid.UUID
 		var createdAt, updatedAt time.Time
 		var status string
-		err = h.pool.QueryRow(r.Context(), `
+		err = tx.QueryRow(r.Context(), `
 			INSERT INTO reviews (
 				provider_id, user_id, is_anonymous, recommend,
 				score_price, score_quality, score_deadline,
@@ -392,6 +433,26 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			req.Comment, serviceDate,
 		).Scan(&id, &status, &createdAt, &updatedAt)
 		if err == nil {
+			if err := audit.Insert(r.Context(), tx, audit.Event{
+				CondoID:     h.condoID,
+				ActorUserID: audit.Ptr(user.ID),
+				Action:      audit.ActionReviewCreated,
+				EntityType:  audit.EntityReview,
+				EntityID:    id,
+				Payload: map[string]any{
+					"provider_id":  providerID,
+					"recommend":    req.Recommend,
+					"is_anonymous": req.IsAnonymous,
+					"status":       status,
+				},
+			}); err != nil {
+				WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+				return
+			}
+			if err := tx.Commit(r.Context()); err != nil {
+				WriteError(w, http.StatusInternalServerError, "failed to commit")
+				return
+			}
 			WriteJSON(w, http.StatusCreated, map[string]any{
 				"id":             id,
 				"provider_id":    providerID,
@@ -413,7 +474,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			WriteError(w, http.StatusInternalServerError, "failed to create review")
 			return
 		}
-		err = h.pool.QueryRow(r.Context(), `
+		err = tx.QueryRow(r.Context(), `
 			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
 		`, user.ID, providerID).Scan(&existingID)
 		if err != nil {
@@ -425,9 +486,12 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	var previousStatus string
+	_ = tx.QueryRow(r.Context(), `SELECT status FROM reviews WHERE id = $1`, existingID).Scan(&previousStatus)
+
 	var updatedAt time.Time
 	var status string
-	err = h.pool.QueryRow(r.Context(), `
+	err = tx.QueryRow(r.Context(), `
 		UPDATE reviews SET
 			is_anonymous = $1,
 			recommend = $2,
@@ -437,6 +501,8 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 			comment = $6,
 			service_date = $7,
 			status = 'pending',
+			reviewed_by = NULL,
+			reviewed_at = NULL,
 			updated_at = now()
 		WHERE id = $8
 		RETURNING status, updated_at
@@ -445,6 +511,29 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 	).Scan(&status, &updatedAt)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "failed to update review")
+		return
+	}
+
+	if err := audit.Insert(r.Context(), tx, audit.Event{
+		CondoID:     h.condoID,
+		ActorUserID: audit.Ptr(user.ID),
+		Action:      audit.ActionReviewUpdated,
+		EntityType:  audit.EntityReview,
+		EntityID:    existingID,
+		Payload: map[string]any{
+			"provider_id":  providerID,
+			"from_status":  previousStatus,
+			"to_status":    status,
+			"recommend":    req.Recommend,
+			"is_anonymous": req.IsAnonymous,
+		},
+	}); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to record audit event")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		WriteError(w, http.StatusInternalServerError, "failed to commit")
 		return
 	}
 

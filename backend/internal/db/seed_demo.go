@@ -199,8 +199,8 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 		`, condoID, p.name).Scan(&id)
 		if err == pgx.ErrNoRows {
 			err = tx.QueryRow(ctx, `
-				INSERT INTO providers (condo_id, name, category, phone, notes, status, created_by)
-				VALUES ($1, $2, $3, $4, $5, 'approved', $6)
+				INSERT INTO providers (condo_id, name, category, phone, notes, status, created_by, reviewed_by, reviewed_at)
+				VALUES ($1, $2, $3, $4, $5, 'approved', $6, $6, now())
 				RETURNING id
 			`, condoID, p.name, p.category, p.phone, p.notes, adminID).Scan(&id)
 			if err != nil {
@@ -240,11 +240,11 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 			INSERT INTO reviews (
 				provider_id, user_id, is_anonymous, recommend,
 				score_price, score_quality, score_deadline,
-				comment, service_date, status
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,'approved')
+				comment, service_date, status, reviewed_by, reviewed_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,'approved',$10,now())
 		`, providerID, userID, rev.anonymous, rev.recommend,
 			rev.price, rev.quality, rev.deadline,
-			rev.comment, serviceDate,
+			rev.comment, serviceDate, adminID,
 		)
 		if err != nil {
 			return fmt.Errorf("seed demo review %s/%s: %w", rev.residentEmail, rev.providerName, err)

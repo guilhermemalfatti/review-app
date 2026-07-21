@@ -12,6 +12,7 @@ import (
 func ResetDB(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `
 		TRUNCATE TABLE
+			audit_events,
 			reviews,
 			providers,
 			sessions,
