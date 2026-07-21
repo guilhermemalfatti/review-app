@@ -34,15 +34,19 @@
 - Sidecar / API gateway auth
 - Payments, WhatsApp bots, push notifications
 
-### Planned free deploy (later)
+### Planned deploy
 
 | Piece | Target |
 |-------|--------|
 | Postgres | Supabase (DB only — **not** Supabase Auth) |
-| Go API | Fly.io |
-| React SPA | Cloudflare Pages |
+| Go API | Render (Docker from `backend/Dockerfile`) |
+| React SPA | GitHub Pages (`https://guilhermemalfatti.github.io/review-app/`) |
 
-Local first; deploy after MVP feels solid.
+Use Supabase **Session** pooler (`sslmode=require`, prefer port `5432` on `*.pooler.supabase.com`) — transaction pooler (`6543`) breaks goose/pgx prepared statements. Append `default_query_exec_mode=simple_protocol` if needed.
+
+Frontend build sets `VITE_API_URL` to the Render origin and `VITE_BASE_PATH=/review-app/`. Render `CORS_ORIGIN` must be `https://guilhermemalfatti.github.io`.
+
+Local first; production secrets live only in Render / GitHub — never in `.env.example`.
 
 ---
 
@@ -276,7 +280,7 @@ Go toolchain: **1.26+** (`go.mod` / Dockerfile aligned).
 - Approval audit trail — done (`reviewed_by`/`reviewed_at` + `audit_events`)
 - Forgot-password / email verification
 - ESLint + tests
-- Production deploy wiring (Supabase + Fly + Cloudflare Pages)
+- Production deploy wiring (Supabase + Render + GitHub Pages) — in progress
 
 Historical review checklist lived in `REVIEW-TODO.md` (P0/P1 largely done as of 2026-07-21). Prefer this `CONTEXT.md` for ongoing orientation.
 

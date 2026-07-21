@@ -77,6 +77,22 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the Go server (cookie sessions).
 
+Optional frontend env (see `frontend/.env.example`): `VITE_API_URL` (empty locally), `VITE_BASE_PATH` (default `/`).
+
+## 5. Production deploy (pilot)
+
+| Piece | Where |
+|---|---|
+| Postgres | Supabase (Session pooler URI + `sslmode=require`) |
+| API | Render Web Service — Docker, root `backend/` |
+| SPA | GitHub Pages via `.github/workflows/pages.yml` |
+
+**Render env (minimum):** `APP_ENV=production`, `COOKIE_SECURE=true`, `DATABASE_URL`, `CORS_ORIGIN=https://guilhermemalfatti.github.io`, strong `INVITE_CODE` / `ADMIN_PASSWORD`, `SEED_DEMO=false`.
+
+**GitHub:** Settings → Pages → Source = GitHub Actions. Site: https://guilhermemalfatti.github.io/review-app/
+
+Push to `main` (or run the workflow manually) after this wiring is merged.
+
 ## CSRF
 
 Mutating requests (`POST` / `PUT` / `PATCH` / `DELETE` under `/api/*`) require a CSRF token:

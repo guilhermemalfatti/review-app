@@ -27,6 +27,13 @@ export class ApiError extends Error {
 
 let csrfToken: string | null = null
 
+/** Empty in local dev (Vite proxies `/api`). Absolute origin on GitHub Pages. */
+const API_BASE = String(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
+function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { error?: string; message?: string }
@@ -47,7 +54,7 @@ function isCsrfRelated(message: string): boolean {
 async function ensureCsrf(): Promise<string> {
   if (csrfToken) return csrfToken
 
-  const response = await fetch('/api/auth/csrf', {
+  const response = await fetch(apiUrl('/api/auth/csrf'), {
     credentials: 'include',
   })
 
@@ -78,7 +85,7 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
     headers['X-CSRF-Token'] = token
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     method,
     credentials: 'include',
