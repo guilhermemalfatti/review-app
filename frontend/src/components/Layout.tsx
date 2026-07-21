@@ -17,7 +17,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="site-header__inner">
           <Link to="/" className="brand" aria-label="Indica — início">
             <span className="brand__mark" aria-hidden="true" />
-            <span className="brand__name">Indica</span>
+            <span className="brand__name">Indica {COMMUNITY_NAME}</span>
           </Link>
 
           <nav className="site-nav" aria-label="Principal">

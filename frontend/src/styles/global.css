@@ -1,19 +1,20 @@
 :root {
-  --sand: #e8e0d4;
-  --sand-deep: #d4c9b8;
-  --stone: #9a9186;
-  --paper: #f5f1ea;
-  --leaf: #3d6b52;
-  --leaf-deep: #1e3d30;
-  --leaf-soft: #6f9a7e;
-  --sea-mist: #8fb4a6;
-  --ink: #1a2820;
-  --ink-muted: #4a5750;
-  --clay: #a86b45;
+  --sand: #e7f2ea;
+  --sand-deep: #c5dccb;
+  --stone: #6d7f74;
+  --paper: #eef5f0;
+  --leaf: #2d6a4f;
+  --leaf-deep: #143528;
+  --leaf-soft: #74a892;
+  --sea-mist: #95c4ae;
+  --ink: #0f2419;
+  --ink-muted: #3d5348;
+  --clay: #6b5344;
+  --bark: #6b5344;
   --danger: #8f3d3d;
-  --success: #2f6b4f;
-  --radius: 12px;
-  --shadow-soft: 0 12px 40px rgba(30, 61, 48, 0.08);
+  --success: #1b7a4e;
+  --radius: 10px;
+  --shadow-soft: 0 16px 48px rgba(20, 53, 40, 0.1);
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Nunito Sans', 'Segoe UI', sans-serif;
   --max: 720px;
@@ -40,9 +41,11 @@ body {
   color: var(--ink);
   background-color: var(--paper);
   background-image:
-    radial-gradient(ellipse 120% 80% at 10% -20%, rgba(143, 180, 166, 0.28), transparent 55%),
-    radial-gradient(ellipse 90% 60% at 100% 0%, rgba(232, 224, 212, 0.9), transparent 50%),
-    linear-gradient(180deg, #f7f3ec 0%, var(--paper) 40%, #efe8dc 100%);
+    radial-gradient(ellipse 90% 55% at 8% -10%, rgba(116, 168, 146, 0.35), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 92% 5%, rgba(45, 106, 79, 0.12), transparent 52%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(149, 196, 174, 0.22), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%232d6a4f' stroke-opacity='0.06' stroke-width='1.2'%3E%3Cpath d='M20 100c8-28 22-48 40-62 6 14 8 30 4 48'/%3E%3Cpath d='M70 110c-4-24 6-46 24-64 10 12 14 28 12 46'/%3E%3Cpath d='M48 20c-10 8-18 22-20 40'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(180deg, #f4faf6 0%, var(--paper) 42%, #e4efe8 100%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
@@ -125,13 +128,24 @@ img {
   }
 }
 
+@keyframes canopy-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .provider-row,
   .chip,
   .toggle-option,
   .privacy-switch__knob,
-  .btn {
+  .btn,
+  .hero__canopy,
+  .brand__mark {
     animation: none !important;
     transition: none !important;
   }
