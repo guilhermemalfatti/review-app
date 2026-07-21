@@ -18,9 +18,9 @@ const (
 	CSRFHeaderName = "X-CSRF-Token"
 )
 
-func CSRFTokenHandler(cookieSecure bool, writeErr ErrorWriter) http.HandlerFunc {
+func CSRFTokenHandler(cookieSecure bool, cookieSameSite http.SameSite, writeErr ErrorWriter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token, err := ensureCSRFCookie(w, r, cookieSecure)
+		token, err := ensureCSRFCookie(w, r, cookieSecure, cookieSameSite)
 		if err != nil {
 			attrs := append(logging.RequestAttrs(r), "err", err)
 			slog.Error("failed to issue csrf token", attrs...)
@@ -89,7 +89,7 @@ func originAllowed(r *http.Request, allowedOrigin string) bool {
 	return u.Scheme+"://"+u.Host == allowedOrigin
 }
 
-func ensureCSRFCookie(w http.ResponseWriter, r *http.Request, cookieSecure bool) (string, error) {
+func ensureCSRFCookie(w http.ResponseWriter, r *http.Request, cookieSecure bool, cookieSameSite http.SameSite) (string, error) {
 	if c, err := r.Cookie(CSRFCookieName); err == nil && c.Value != "" {
 		return c.Value, nil
 	}
@@ -98,7 +98,7 @@ func ensureCSRFCookie(w http.ResponseWriter, r *http.Request, cookieSecure bool)
 	if err != nil {
 		return "", err
 	}
-	setCSRFCookie(w, token, cookieSecure)
+	setCSRFCookie(w, token, cookieSecure, cookieSameSite)
 	return token, nil
 }
 
@@ -110,17 +110,16 @@ func newCSRFToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func setCSRFCookie(w http.ResponseWriter, token string, cookieSecure bool) {
-	sameSite := http.SameSiteLaxMode
-	if cookieSecure {
-		sameSite = http.SameSiteNoneMode
+func setCSRFCookie(w http.ResponseWriter, token string, cookieSecure bool, cookieSameSite http.SameSite) {
+	if cookieSameSite == 0 {
+		cookieSameSite = http.SameSiteLaxMode
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     CSRFCookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: false,
-		SameSite: sameSite,
+		SameSite: cookieSameSite,
 		Secure:   cookieSecure,
 	})
 }

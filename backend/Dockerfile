@@ -1,3 +1,5 @@
+# API-only image (no SPA). Prefer the repo-root Dockerfile for production
+# so the Vite build is served from the same origin as /api (mobile cookies).
 FROM golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./

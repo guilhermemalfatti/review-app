@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -95,13 +96,20 @@ func main() {
 		}
 	}()
 
+	sameSite := http.SameSiteLaxMode
+	if strings.EqualFold(cfg.CookieSameSite, "None") {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	router := httpserver.NewRouter(httpserver.Deps{
-		Pool:         pool,
-		Sessions:     sessions,
-		CondoID:      condoID,
-		InviteCode:   cfg.InviteCode,
-		CORSOrigin:   cfg.CORSOrigin,
-		CookieSecure: cfg.CookieSecure,
+		Pool:           pool,
+		Sessions:       sessions,
+		CondoID:        condoID,
+		InviteCode:     cfg.InviteCode,
+		CORSOrigin:     cfg.CORSOrigin,
+		CookieSecure:   cfg.CookieSecure,
+		CookieSameSite: sameSite,
+		StaticDir:      cfg.StaticDir,
 	})
 
 	srv := &http.Server{
@@ -113,7 +121,13 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("listening", "addr", ":"+cfg.Port, "env", cfg.AppEnv, "cookie_secure", cfg.CookieSecure)
+		slog.Info("listening",
+			"addr", ":"+cfg.Port,
+			"env", cfg.AppEnv,
+			"cookie_secure", cfg.CookieSecure,
+			"cookie_same_site", cfg.CookieSameSite,
+			"static_dir", cfg.StaticDir,
+		)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server", "err", err)
 			os.Exit(1)

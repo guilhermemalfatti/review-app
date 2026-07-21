@@ -15,16 +15,18 @@ import (
 )
 
 type Deps struct {
-	Pool         *pgxpool.Pool
-	Sessions     *auth.SessionStore
-	CondoID      uuid.UUID
-	InviteCode   string
-	CORSOrigin   string
-	CookieSecure bool
+	Pool           *pgxpool.Pool
+	Sessions       *auth.SessionStore
+	CondoID        uuid.UUID
+	InviteCode     string
+	CORSOrigin     string
+	CookieSecure   bool
+	CookieSameSite http.SameSite
+	StaticDir      string
 }
 
 func NewRouter(d Deps) http.Handler {
-	authH := handlers.NewAuthHandler(d.Pool, d.Sessions, d.CondoID, d.InviteCode, d.CookieSecure)
+	authH := handlers.NewAuthHandler(d.Pool, d.Sessions, d.CondoID, d.InviteCode, d.CookieSecure, d.CookieSameSite)
 	providersH := handlers.NewProvidersHandler(d.Pool, d.CondoID)
 	adminH := handlers.NewAdminHandler(d.Pool, d.CondoID)
 	authLimiter := middleware.NewIPRateLimiter(20, 15*time.Minute, handlers.WriteError)
@@ -49,7 +51,7 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Get("/csrf", middleware.CSRFTokenHandler(d.CookieSecure, handlers.WriteError))
+		r.Get("/csrf", middleware.CSRFTokenHandler(d.CookieSecure, d.CookieSameSite, handlers.WriteError))
 		r.With(authLimiter.Middleware).Post("/signup", authH.Signup)
 		r.With(authLimiter.Middleware).Post("/login", authH.Login)
 		r.Post("/logout", authH.Logout)
@@ -84,6 +86,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/users", adminH.ListUsers)
 		r.Post("/users/{id}/reset-password", adminH.ResetPassword)
 	})
+
+	MountSPA(r, d.StaticDir)
 
 	return r
 }

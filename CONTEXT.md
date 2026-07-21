@@ -39,12 +39,11 @@
 | Piece | Target |
 |-------|--------|
 | Postgres | Supabase (DB only — **not** Supabase Auth) |
-| Go API | Render (Docker from `backend/Dockerfile`) |
-| React SPA | GitHub Pages (`https://guilhermemalfatti.github.io/review-app/`) |
+| Go API + SPA | **Render** Docker from **repo-root** `Dockerfile` (same origin) |
 
 Use Supabase **Session** pooler (`sslmode=require`, prefer port `5432` on `*.pooler.supabase.com`) — transaction pooler (`6543`) breaks goose/pgx prepared statements. Append `default_query_exec_mode=simple_protocol` if needed.
 
-Frontend build sets `VITE_API_URL` to the Render origin and `VITE_BASE_PATH=/review-app/`. Render `CORS_ORIGIN` must be `https://guilhermemalfatti.github.io`.
+Same-origin build leaves `VITE_API_URL` empty and `VITE_BASE_PATH=/`. Set Render `CORS_ORIGIN` to the Render service URL (e.g. `https://review-app-y7fl.onrender.com`). Use `COOKIE_SAMESITE=Lax` (default). GitHub Pages is optional/legacy and needs `COOKIE_SAMESITE=None` (often broken on iOS).
 
 Local first; production secrets live only in Render / GitHub — never in `.env.example`.
 

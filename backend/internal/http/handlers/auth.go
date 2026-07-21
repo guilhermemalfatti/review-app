@@ -17,20 +17,25 @@ import (
 )
 
 type AuthHandler struct {
-	pool         *pgxpool.Pool
-	sessions     *auth.SessionStore
-	condoID      uuid.UUID
-	inviteCode   string
-	cookieSecure bool
+	pool           *pgxpool.Pool
+	sessions       *auth.SessionStore
+	condoID        uuid.UUID
+	inviteCode     string
+	cookieSecure   bool
+	cookieSameSite http.SameSite
 }
 
-func NewAuthHandler(pool *pgxpool.Pool, sessions *auth.SessionStore, condoID uuid.UUID, inviteCode string, cookieSecure bool) *AuthHandler {
+func NewAuthHandler(pool *pgxpool.Pool, sessions *auth.SessionStore, condoID uuid.UUID, inviteCode string, cookieSecure bool, cookieSameSite http.SameSite) *AuthHandler {
+	if cookieSameSite == 0 {
+		cookieSameSite = http.SameSiteLaxMode
+	}
 	return &AuthHandler{
-		pool:         pool,
-		sessions:     sessions,
-		condoID:      condoID,
-		inviteCode:   inviteCode,
-		cookieSecure: cookieSecure,
+		pool:           pool,
+		sessions:       sessions,
+		condoID:        condoID,
+		inviteCode:     inviteCode,
+		cookieSecure:   cookieSecure,
+		cookieSameSite: cookieSameSite,
 	}
 }
 
@@ -51,44 +56,44 @@ type userResponse struct {
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
-	sameSite := http.SameSiteLaxMode
-	sameSiteLabel := "Lax"
-	if h.cookieSecure {
-		// Cross-site SPA (e.g. GitHub Pages → Render) needs None; Secure.
-		sameSite = http.SameSiteNoneMode
-		sameSiteLabel = "None"
-	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: sameSite,
+		SameSite: h.cookieSameSite,
 		Secure:   h.cookieSecure,
 		Expires:  expiresAt,
 	})
 	slog.Info("session cookie set",
 		"secure", h.cookieSecure,
-		"same_site", sameSiteLabel,
+		"same_site", sameSiteLabel(h.cookieSameSite),
 		"expires_at", expiresAt.UTC().Format(time.RFC3339),
 	)
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
-	sameSite := http.SameSiteLaxMode
-	if h.cookieSecure {
-		sameSite = http.SameSiteNoneMode
-	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: sameSite,
+		SameSite: h.cookieSameSite,
 		Secure:   h.cookieSecure,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
+}
+
+func sameSiteLabel(s http.SameSite) string {
+	switch s {
+	case http.SameSiteNoneMode:
+		return "None"
+	case http.SameSiteStrictMode:
+		return "Strict"
+	default:
+		return "Lax"
+	}
 }
 
 func inviteCodesEqual(a, b string) bool {

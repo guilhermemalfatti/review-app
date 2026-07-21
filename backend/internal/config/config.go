@@ -20,6 +20,8 @@ type Config struct {
 	ResetDB          bool
 	AppEnv           string
 	CookieSecure     bool
+	CookieSameSite   string // "Lax" (default) or "None" (cross-site SPA)
+	StaticDir        string
 }
 
 func Load() (*Config, error) {
@@ -37,6 +39,7 @@ func Load() (*Config, error) {
 		SeedDemo:         getEnv("SEED_DEMO", "false") == "true",
 		ResetDB:          getEnv("RESET_DB", "false") == "true",
 		AppEnv:           appEnv,
+		StaticDir:        strings.TrimSpace(os.Getenv("STATIC_DIR")),
 	}
 
 	if days := os.Getenv("SESSION_DAYS"); days != "" {
@@ -58,6 +61,19 @@ func Load() (*Config, error) {
 		}
 	} else {
 		cfg.CookieSecure = cfg.AppEnv == "production"
+	}
+
+	sameSite := strings.ToLower(strings.TrimSpace(getEnv("COOKIE_SAMESITE", "Lax")))
+	switch sameSite {
+	case "lax", "":
+		cfg.CookieSameSite = "Lax"
+	case "none":
+		cfg.CookieSameSite = "None"
+		if !cfg.CookieSecure {
+			return nil, fmt.Errorf("COOKIE_SAMESITE=None requires COOKIE_SECURE=true")
+		}
+	default:
+		return nil, fmt.Errorf("COOKIE_SAMESITE must be Lax or None")
 	}
 
 	if cfg.DatabaseURL == "" {

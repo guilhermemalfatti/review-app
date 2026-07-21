@@ -1,0 +1,12 @@
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+frontend/dist
+backend/bin
+**/*_test.go
+CONTEXT.md
+*.md
+!README.md

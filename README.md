@@ -81,17 +81,42 @@ Optional frontend env (see `frontend/.env.example`): `VITE_API_URL` (empty local
 
 ## 5. Production deploy (pilot)
 
+Preferred: **one Render Web Service** serves API + SPA (same origin → cookies work on iOS).
+
 | Piece | Where |
 |---|---|
 | Postgres | Supabase (Session pooler URI + `sslmode=require`) |
-| API | Render Web Service — Docker, root `backend/` |
-| SPA | GitHub Pages via `.github/workflows/pages.yml` |
+| App (API + SPA) | Render Web Service — Docker from **repo-root** `Dockerfile` |
 
-**Render env (minimum):** `APP_ENV=production`, `COOKIE_SECURE=true`, `DATABASE_URL`, `CORS_ORIGIN=https://guilhermemalfatti.github.io`, strong `INVITE_CODE` / `ADMIN_PASSWORD`, `SEED_DEMO=false`.
+**Render settings**
 
-**GitHub:** Settings → Pages → Source = GitHub Actions. Site: https://guilhermemalfatti.github.io/review-app/
+- Root Directory: *(empty / repo root)*
+- Dockerfile Path: `./Dockerfile`
+- Docker build context: repo root
 
-Push to `main` (or run the workflow manually) after this wiring is merged.
+**Render env (minimum):**
+
+| Variable | Value |
+|---|---|
+| `APP_ENV` | `production` |
+| `COOKIE_SECURE` | `true` |
+| `COOKIE_SAMESITE` | `Lax` (same-origin; default) |
+| `CORS_ORIGIN` | `https://YOUR-SERVICE.onrender.com` (no trailing slash) |
+| `DATABASE_URL` | Supabase Session pooler URI |
+| `INVITE_CODE` / `ADMIN_PASSWORD` | strong non-default values |
+| `SEED_DEMO` | `false` |
+
+Open `https://YOUR-SERVICE.onrender.com/` for the app and `/api/health` for the API. `STATIC_DIR=/app/static` is set in the image.
+
+Optional legacy: GitHub Pages + API-only `backend/Dockerfile` requires `COOKIE_SAMESITE=None` and `CORS_ORIGIN=https://guilhermemalfatti.github.io` (mobile Safari often still blocks those cookies).
+
+Local Docker smoke test from repo root:
+
+```bash
+docker build -t indica .
+docker run --rm -p 8080:8080 --env-file .env -e STATIC_DIR=/app/static indica
+```
+
 
 ## CSRF
 
