@@ -67,7 +67,7 @@ func (h *AdminHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	if status == "" {
 		status = "pending"
 	}
-	if status != "pending" && status != "approved" && status != "rejected" {
+	if status != "pending" && status != "approved" && status != "rejected" && status != "removed" {
 		WriteError(w, http.StatusBadRequest, "invalid status")
 		return
 	}
@@ -200,6 +200,91 @@ func (h *AdminHandler) ApproveProvider(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) RejectProvider(w http.ResponseWriter, r *http.Request) {
 	h.setProviderStatus(w, r, "rejected")
+}
+
+func (h *AdminHandler) RemoveProvider(w http.ResponseWriter, r *http.Request) {
+	actor := auth.UserFromContext(r.Context())
+	if actor == nil {
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid provider id")
+		return
+	}
+
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		WriteServerError(w, r, "failed to begin transaction", err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var previousStatus string
+	err = tx.QueryRow(r.Context(), `
+		SELECT status FROM providers WHERE id = $1 AND condo_id = $2
+	`, id, h.condoID).Scan(&previousStatus)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			WriteError(w, http.StatusNotFound, "provider not found")
+			return
+		}
+		WriteServerError(w, r, "failed to lookup provider", err)
+		return
+	}
+	if previousStatus == "removed" {
+		WriteError(w, http.StatusConflict, "provider already removed")
+		return
+	}
+
+	var item AdminProviderItem
+	err = tx.QueryRow(r.Context(), `
+		UPDATE providers p
+		SET status = 'removed', reviewed_by = $1, reviewed_at = now(), updated_at = now()
+		FROM users u
+		WHERE p.id = $2 AND p.condo_id = $3 AND u.id = p.created_by
+		RETURNING p.id, p.name, p.category, p.phone, p.notes, p.status, p.created_at, p.updated_at,
+			u.email, u.display_name, p.reviewed_by, p.reviewed_at
+	`, actor.ID, id, h.condoID).Scan(
+		&item.ID, &item.Name, &item.Category, &item.Phone, &item.Notes, &item.Status,
+		&item.CreatedAt, &item.UpdatedAt, &item.CreatorEmail, &item.CreatorDisplayName,
+		&item.ReviewedBy, &item.ReviewedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			WriteError(w, http.StatusNotFound, "provider not found")
+			return
+		}
+		WriteServerError(w, r, "failed to remove provider", err)
+		return
+	}
+
+	item.ReviewerEmail = &actor.Email
+	item.ReviewerDisplayName = &actor.DisplayName
+
+	if err := audit.Insert(r.Context(), tx, audit.Event{
+		CondoID:     h.condoID,
+		ActorUserID: audit.Ptr(actor.ID),
+		Action:      audit.ActionProviderRemoved,
+		EntityType:  audit.EntityProvider,
+		EntityID:    id,
+		Payload: map[string]any{
+			"from_status": previousStatus,
+			"to_status":   "removed",
+			"name":        item.Name,
+		},
+	}); err != nil {
+		WriteServerError(w, r, "failed to record audit event", err)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		WriteServerError(w, r, "failed to commit", err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, item)
 }
 
 func (h *AdminHandler) ListReviews(w http.ResponseWriter, r *http.Request) {

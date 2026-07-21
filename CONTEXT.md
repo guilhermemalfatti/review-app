@@ -104,12 +104,12 @@ review-app/
 - **users** — `condo_id`, `email`, `password_hash`, `display_name`, `role` (`resident`|`admin`), `must_change_password`, `created_at`
   - Unique: **`(condo_id, email)`** (migration `00003`)
 - **sessions** — `user_id`, `token_hash` (SHA-256 of raw cookie token), `expires_at`
-- **providers** — `condo_id`, `name`, `category`, `phone`, `notes`, `status` (`pending`|`approved`|`rejected`), `created_by`, `reviewed_by`, `reviewed_at`
-  - Unique: **`(condo_id, name)`** (migration `00003`)
+- **providers** — `condo_id`, `name`, `category`, `phone`, `notes`, `status` (`pending`|`approved`|`rejected`|`removed`), `created_by`, `reviewed_by`, `reviewed_at`
+  - Unique active name: **`(condo_id, name)` where status ≠ `removed`** (migration `00006`)
 - **reviews** — `provider_id`, `user_id`, `is_anonymous`, `recommend`, scores, `comment`, `service_date`, `status` (`pending`|`approved`|`rejected`|`superseded`), `reviewed_by`, `reviewed_at`
   - Append-only versions (migration `00005`); partial unique: one `pending` and one `approved` per `(user_id, provider_id)`
 - **audit_events** — append-only activity log: `condo_id`, `actor_user_id`, `action`, `entity_type`, `entity_id`, `payload` (JSONB), `created_at`
-  - Actions include `provider.created|approved|rejected`, `review.created|approved|rejected|superseded`, `user.password_reset`
+  - Actions include `provider.created|approved|rejected|removed`, `review.created|approved|rejected|superseded`, `user.password_reset`
   - Written in the **same transaction** as the state change
   - `reviewed_*` columns hold the **latest** moderator; full history lives in `audit_events`
 

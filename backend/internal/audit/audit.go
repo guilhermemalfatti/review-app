@@ -13,6 +13,7 @@ const (
 	ActionProviderCreated   = "provider.created"
 	ActionProviderApproved  = "provider.approved"
 	ActionProviderRejected  = "provider.rejected"
+	ActionProviderRemoved   = "provider.removed"
 	ActionReviewCreated     = "review.created"
 	ActionReviewApproved    = "review.approved"
 	ActionReviewRejected    = "review.rejected"

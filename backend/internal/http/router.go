@@ -80,6 +80,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/providers", adminH.ListProviders)
 		r.Post("/providers/{id}/approve", adminH.ApproveProvider)
 		r.Post("/providers/{id}/reject", adminH.RejectProvider)
+		r.Post("/providers/{id}/remove", adminH.RemoveProvider)
 		r.Get("/reviews", adminH.ListReviews)
 		r.Post("/reviews/{id}/approve", adminH.ApproveReview)
 		r.Post("/reviews/{id}/reject", adminH.RejectReview)

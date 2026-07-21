@@ -548,6 +548,18 @@
   text-align: center;
 }
 
+.admin-panel__heading {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.admin-panel + .admin-panel {
+  margin-top: 36px;
+}
+
 .admin-panel__help {
   font-size: 1.05rem;
   line-height: 1.45;

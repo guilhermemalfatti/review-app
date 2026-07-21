@@ -183,12 +183,20 @@ export const api = {
     return request<PendingProvider[]>('/api/admin/providers?status=pending')
   },
 
+  adminApprovedProviders() {
+    return request<PendingProvider[]>('/api/admin/providers?status=approved')
+  },
+
   adminApproveProvider(id: string) {
     return request<void>(`/api/admin/providers/${id}/approve`, { method: 'POST' })
   },
 
   adminRejectProvider(id: string) {
     return request<void>(`/api/admin/providers/${id}/reject`, { method: 'POST' })
+  },
+
+  adminRemoveProvider(id: string) {
+    return request<void>(`/api/admin/providers/${id}/remove`, { method: 'POST' })
   },
 
   adminPendingReviews() {
