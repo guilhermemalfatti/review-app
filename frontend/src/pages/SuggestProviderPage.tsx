@@ -78,6 +78,16 @@ export function SuggestProviderPage() {
             ))}
           </select>
         </label>
+        <label className="field">
+          <span>Categoria</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+            {CATEGORIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="field">
           <span>Telefone</span>
