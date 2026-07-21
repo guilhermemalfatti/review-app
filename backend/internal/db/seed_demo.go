@@ -39,7 +39,7 @@ type demoReview struct {
 func intPtr(v int) *int { return &v }
 
 // SeedDemo inserts sample providers and reviews when SEED_DEMO is enabled.
-// It is idempotent: existing providers (same name) and reviews (same user+provider) are skipped.
+// It is idempotent: existing providers (same name) and approved reviews (same user+provider) are skipped.
 // The bootstrap Seed (condo + admin) is separate and always runs.
 func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error {
 	residents := []demoResident{
@@ -226,7 +226,7 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 
 		var existing uuid.UUID
 		err := tx.QueryRow(ctx, `
-			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
+			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2 AND status = 'approved'
 		`, userID, providerID).Scan(&existing)
 		if err == nil {
 			continue

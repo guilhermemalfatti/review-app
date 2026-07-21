@@ -20,7 +20,7 @@
 - Soft gate: signup needs a shared **invite code** (not a hard email allowlist).
 - **Admin moderation** for new providers and every new/updated review (language / quality control).
 - Reviewer can choose **show name** or **anonymous**; identity always stored for uniqueness/moderation; public sees `author_label` (`display_name` or `Anônimo`).
-- One review per user per provider (upsert); resubmit **replaces** previous and re-enters `pending`.
+- One review version per submission (append-only); resubmit **creates a new pending row** and leaves the previous **approved** review published until the new one is approved (then old → `superseded`) or rejected (old stays approved). Rows are never deleted.
 - Scores: optional 1–5 on **price / quality / deadline** + recommend yes/no + comment + service date.
 - UI language: **Portuguese (Brazil)** for residents; code/identifiers in English.
 - Audience includes **older adults** → keep admin and scores simple (tabs, large buttons, stars + “X de 5 — Bom”).
@@ -106,10 +106,10 @@ review-app/
 - **sessions** — `user_id`, `token_hash` (SHA-256 of raw cookie token), `expires_at`
 - **providers** — `condo_id`, `name`, `category`, `phone`, `notes`, `status` (`pending`|`approved`|`rejected`), `created_by`, `reviewed_by`, `reviewed_at`
   - Unique: **`(condo_id, name)`** (migration `00003`)
-- **reviews** — `provider_id`, `user_id`, `is_anonymous`, `recommend`, scores, `comment`, `service_date`, `status`, `reviewed_by`, `reviewed_at`
-  - Unique: **`(user_id, provider_id)`**
+- **reviews** — `provider_id`, `user_id`, `is_anonymous`, `recommend`, scores, `comment`, `service_date`, `status` (`pending`|`approved`|`rejected`|`superseded`), `reviewed_by`, `reviewed_at`
+  - Append-only versions (migration `00005`); partial unique: one `pending` and one `approved` per `(user_id, provider_id)`
 - **audit_events** — append-only activity log: `condo_id`, `actor_user_id`, `action`, `entity_type`, `entity_id`, `payload` (JSONB), `created_at`
-  - Actions include `provider.created|approved|rejected`, `review.created|updated|approved|rejected`, `user.password_reset`
+  - Actions include `provider.created|approved|rejected`, `review.created|approved|rejected|superseded`, `user.password_reset`
   - Written in the **same transaction** as the state change
   - `reviewed_*` columns hold the **latest** moderator; full history lives in `audit_events`
 
@@ -184,7 +184,7 @@ Base: `/api`. Cookie: `session`. CSRF header on mutations.
 | GET | `/providers/:id` | public (approved; admin can see non-approved) |
 | GET | `/providers/:id/my-review` | session |
 | POST | `/providers` | session → pending |
-| POST | `/providers/:id/reviews` | session → pending (upsert) |
+| POST | `/providers/:id/reviews` | session → pending (new row; prior approved stays live) |
 | GET/POST | `/admin/providers…` | admin |
 | GET/POST | `/admin/reviews…` | admin |
 | GET | `/admin/users` | admin |

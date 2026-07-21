@@ -14,9 +14,9 @@ const (
 	ActionProviderApproved  = "provider.approved"
 	ActionProviderRejected  = "provider.rejected"
 	ActionReviewCreated     = "review.created"
-	ActionReviewUpdated     = "review.updated"
 	ActionReviewApproved    = "review.approved"
 	ActionReviewRejected    = "review.rejected"
+	ActionReviewSuperseded  = "review.superseded"
 	ActionUserPasswordReset = "user.password_reset"
 
 	EntityProvider = "provider"

@@ -99,7 +99,7 @@ export function ReviewPage() {
 
     if (existingReview) {
       const ok = window.confirm(
-        'Você já enviou uma indicação para este prestador. Enviar de novo substitui a anterior e ela volta para aprovação do administrador. Deseja continuar?',
+        'Você já tem uma indicação para este prestador. Enviar de novo cria uma nova versão para aprovação; a indicação publicada hoje continua visível até o administrador decidir. Deseja continuar?',
       )
       if (!ok) return
     }
@@ -183,9 +183,10 @@ export function ReviewPage() {
       {existingReview && (
         <StatusMessage tone="info">
           Você já tem uma indicação para este prestador
-          {statusLabel ? ` (${statusLabel})` : ''}. Enviar de novo{' '}
-          <strong>substitui a anterior</strong> e ela volta para a fila de
-          aprovação.
+          {statusLabel ? ` (${statusLabel})` : ''}. Enviar de novo cria uma{' '}
+          <strong>nova versão</strong> para aprovação; a indicação já publicada
+          continua visível até o administrador aceitar a nova (aí a antiga deixa
+          de aparecer) ou rejeitar (aí a antiga permanece).
         </StatusMessage>
       )}
 
@@ -194,7 +195,7 @@ export function ReviewPage() {
       {success && (
         <StatusMessage tone="success">
           {replaced
-            ? 'Indicação atualizada. Ela aguarda nova aprovação do administrador antes de aparecer publicamente.'
+            ? 'Nova versão enviada. Ela aguarda aprovação; a indicação publicada anteriormente continua visível por enquanto.'
             : 'Indicação enviada. Ela aguarda aprovação do administrador antes de aparecer publicamente.'}
         </StatusMessage>
       )}

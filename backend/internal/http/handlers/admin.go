@@ -207,7 +207,7 @@ func (h *AdminHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
 	if status == "" {
 		status = "pending"
 	}
-	if status != "pending" && status != "approved" && status != "rejected" {
+	if status != "pending" && status != "approved" && status != "rejected" && status != "superseded" {
 		WriteError(w, http.StatusBadRequest, "invalid status")
 		return
 	}
@@ -277,12 +277,13 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 	defer tx.Rollback(r.Context())
 
 	var previousStatus string
+	var userID, providerID uuid.UUID
 	err = tx.QueryRow(r.Context(), `
-		SELECT r.status
+		SELECT r.status, r.user_id, r.provider_id
 		FROM reviews r
 		JOIN providers p ON p.id = r.provider_id
 		WHERE r.id = $1 AND p.condo_id = $2
-	`, id, h.condoID).Scan(&previousStatus)
+	`, id, h.condoID).Scan(&previousStatus, &userID, &providerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			WriteError(w, http.StatusNotFound, "review not found")
@@ -290,6 +291,58 @@ func (h *AdminHandler) setReviewStatus(w http.ResponseWriter, r *http.Request, s
 		}
 		WriteServerError(w, r, "failed to lookup review", err)
 		return
+	}
+	if previousStatus != "pending" {
+		WriteError(w, http.StatusConflict, "only pending reviews can be moderated")
+		return
+	}
+
+	if status == "approved" {
+		// Keep history: mark the previously published version as superseded (not deleted).
+		superRows, err := tx.Query(r.Context(), `
+			UPDATE reviews
+			SET status = 'superseded', updated_at = now()
+			WHERE user_id = $1 AND provider_id = $2 AND status = 'approved' AND id <> $3
+			RETURNING id
+		`, userID, providerID, id)
+		if err != nil {
+			WriteServerError(w, r, "failed to supersede prior review", err)
+			return
+		}
+		var supersededIDs []uuid.UUID
+		for superRows.Next() {
+			var oldID uuid.UUID
+			if err := superRows.Scan(&oldID); err != nil {
+				superRows.Close()
+				WriteServerError(w, r, "failed to scan superseded review", err)
+				return
+			}
+			supersededIDs = append(supersededIDs, oldID)
+		}
+		superRows.Close()
+		if err := superRows.Err(); err != nil {
+			WriteServerError(w, r, "failed to supersede prior review", err)
+			return
+		}
+		for _, oldID := range supersededIDs {
+			if err := audit.Insert(r.Context(), tx, audit.Event{
+				CondoID:     h.condoID,
+				ActorUserID: audit.Ptr(actor.ID),
+				Action:      audit.ActionReviewSuperseded,
+				EntityType:  audit.EntityReview,
+				EntityID:    oldID,
+				Payload: map[string]any{
+					"provider_id":      providerID,
+					"replaced_by":      id,
+					"reason":           "newer_review_approved",
+					"from_status":      "approved",
+					"to_status":        "superseded",
+				},
+			}); err != nil {
+				WriteServerError(w, r, "failed to record audit event", err)
+				return
+			}
+		}
 	}
 
 	var item AdminReviewItem

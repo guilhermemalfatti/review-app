@@ -432,120 +432,82 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 	}
 	defer tx.Rollback(r.Context())
 
-	var existingID uuid.UUID
-	err = tx.QueryRow(r.Context(), `
-		SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
-	`, user.ID, providerID).Scan(&existingID)
-
-	if errors.Is(err, pgx.ErrNoRows) {
+	// Invalidate any previous pending submission from this member (append-only; do not overwrite).
+	pendingRows, err := tx.Query(r.Context(), `
+		UPDATE reviews
+		SET status = 'superseded', updated_at = now()
+		WHERE user_id = $1 AND provider_id = $2 AND status = 'pending'
+		RETURNING id
+	`, user.ID, providerID)
+	if err != nil {
+		WriteServerError(w, r, "failed to supersede pending review", err)
+		return
+	}
+	var supersededPending []uuid.UUID
+	for pendingRows.Next() {
 		var id uuid.UUID
-		var createdAt, updatedAt time.Time
-		var status string
-		err = tx.QueryRow(r.Context(), `
-			INSERT INTO reviews (
-				provider_id, user_id, is_anonymous, recommend,
-				score_price, score_quality, score_deadline,
-				comment, service_date, status
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
-			RETURNING id, status, created_at, updated_at
-		`, providerID, user.ID, req.IsAnonymous, req.Recommend,
-			req.ScorePrice, req.ScoreQuality, req.ScoreDeadline,
-			req.Comment, serviceDate,
-		).Scan(&id, &status, &createdAt, &updatedAt)
-		if err == nil {
-			if err := audit.Insert(r.Context(), tx, audit.Event{
-				CondoID:     h.condoID,
-				ActorUserID: audit.Ptr(user.ID),
-				Action:      audit.ActionReviewCreated,
-				EntityType:  audit.EntityReview,
-				EntityID:    id,
-				Payload: map[string]any{
-					"provider_id":  providerID,
-					"recommend":    req.Recommend,
-					"is_anonymous": req.IsAnonymous,
-					"status":       status,
-				},
-			}); err != nil {
-				WriteServerError(w, r, "failed to record audit event", err)
-				return
-			}
-			if err := tx.Commit(r.Context()); err != nil {
-				WriteServerError(w, r, "failed to commit", err)
-				return
-			}
-			WriteJSON(w, http.StatusCreated, map[string]any{
-				"id":             id,
-				"provider_id":    providerID,
-				"is_anonymous":   req.IsAnonymous,
-				"recommend":      req.Recommend,
-				"score_price":    req.ScorePrice,
-				"score_quality":  req.ScoreQuality,
-				"score_deadline": req.ScoreDeadline,
-				"comment":        req.Comment,
-				"service_date":   req.ServiceDate,
-				"status":         status,
-				"created_at":     createdAt,
-				"updated_at":     updatedAt,
-			})
+		if err := pendingRows.Scan(&id); err != nil {
+			pendingRows.Close()
+			WriteServerError(w, r, "failed to scan superseded pending review", err)
 			return
 		}
-		var pgErr *pgconn.PgError
-		if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
-			WriteServerError(w, r, "failed to create review", err)
-			return
-		}
-		err = tx.QueryRow(r.Context(), `
-			SELECT id FROM reviews WHERE user_id = $1 AND provider_id = $2
-		`, user.ID, providerID).Scan(&existingID)
-		if err != nil {
-			WriteServerError(w, r, "failed to lookup review after conflict", err)
-			return
-		}
-	} else if err != nil {
-		WriteServerError(w, r, "failed to lookup review", err)
+		supersededPending = append(supersededPending, id)
+	}
+	pendingRows.Close()
+	if err := pendingRows.Err(); err != nil {
+		WriteServerError(w, r, "failed to supersede pending review", err)
 		return
 	}
 
-	var previousStatus string
-	_ = tx.QueryRow(r.Context(), `SELECT status FROM reviews WHERE id = $1`, existingID).Scan(&previousStatus)
+	for _, oldID := range supersededPending {
+		if err := audit.Insert(r.Context(), tx, audit.Event{
+			CondoID:     h.condoID,
+			ActorUserID: audit.Ptr(user.ID),
+			Action:      audit.ActionReviewSuperseded,
+			EntityType:  audit.EntityReview,
+			EntityID:    oldID,
+			Payload: map[string]any{
+				"provider_id": providerID,
+				"reason":      "replaced_by_new_submission",
+			},
+		}); err != nil {
+			WriteServerError(w, r, "failed to record audit event", err)
+			return
+		}
+	}
 
-	var updatedAt time.Time
+	var id uuid.UUID
+	var createdAt, updatedAt time.Time
 	var status string
 	err = tx.QueryRow(r.Context(), `
-		UPDATE reviews SET
-			is_anonymous = $1,
-			recommend = $2,
-			score_price = $3,
-			score_quality = $4,
-			score_deadline = $5,
-			comment = $6,
-			service_date = $7,
-			status = 'pending',
-			reviewed_by = NULL,
-			reviewed_at = NULL,
-			updated_at = now()
-		WHERE id = $8
-		RETURNING status, updated_at
-	`, req.IsAnonymous, req.Recommend, req.ScorePrice, req.ScoreQuality, req.ScoreDeadline,
-		req.Comment, serviceDate, existingID,
-	).Scan(&status, &updatedAt)
+		INSERT INTO reviews (
+			provider_id, user_id, is_anonymous, recommend,
+			score_price, score_quality, score_deadline,
+			comment, service_date, status
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
+		RETURNING id, status, created_at, updated_at
+	`, providerID, user.ID, req.IsAnonymous, req.Recommend,
+		req.ScorePrice, req.ScoreQuality, req.ScoreDeadline,
+		req.Comment, serviceDate,
+	).Scan(&id, &status, &createdAt, &updatedAt)
 	if err != nil {
-		WriteServerError(w, r, "failed to update review", err)
+		WriteServerError(w, r, "failed to create review", err)
 		return
 	}
 
 	if err := audit.Insert(r.Context(), tx, audit.Event{
 		CondoID:     h.condoID,
 		ActorUserID: audit.Ptr(user.ID),
-		Action:      audit.ActionReviewUpdated,
+		Action:      audit.ActionReviewCreated,
 		EntityType:  audit.EntityReview,
-		EntityID:    existingID,
+		EntityID:    id,
 		Payload: map[string]any{
-			"provider_id":  providerID,
-			"from_status":  previousStatus,
-			"to_status":    status,
-			"recommend":    req.Recommend,
-			"is_anonymous": req.IsAnonymous,
+			"provider_id":         providerID,
+			"recommend":           req.Recommend,
+			"is_anonymous":        req.IsAnonymous,
+			"status":              status,
+			"superseded_pending":  len(supersededPending) > 0,
+			"keeps_prior_approved": true,
 		},
 	}); err != nil {
 		WriteServerError(w, r, "failed to record audit event", err)
@@ -557,8 +519,8 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, map[string]any{
-		"id":             existingID,
+	WriteJSON(w, http.StatusCreated, map[string]any{
+		"id":             id,
 		"provider_id":    providerID,
 		"is_anonymous":   req.IsAnonymous,
 		"recommend":      req.Recommend,
@@ -568,6 +530,7 @@ func (h *ProvidersHandler) CreateReview(w http.ResponseWriter, r *http.Request) 
 		"comment":        req.Comment,
 		"service_date":   req.ServiceDate,
 		"status":         status,
+		"created_at":     createdAt,
 		"updated_at":     updatedAt,
 	})
 }
@@ -606,6 +569,9 @@ func (h *ProvidersHandler) MyReview(w http.ResponseWriter, r *http.Request) {
 		FROM reviews r
 		JOIN providers p ON p.id = r.provider_id
 		WHERE r.provider_id = $1 AND r.user_id = $2 AND p.condo_id = $3
+			AND r.status IN ('pending', 'approved')
+		ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.created_at DESC
+		LIMIT 1
 	`, providerID, user.ID, h.condoID).Scan(
 		&review.ID, &review.IsAnonymous, &review.Recommend, &review.ScorePrice, &review.ScoreQuality, &review.ScoreDeadline,
 		&review.Comment, &review.ServiceDate, &review.Status, &review.CreatedAt, &review.UpdatedAt,
