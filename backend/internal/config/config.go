@@ -76,6 +76,13 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("COOKIE_SAMESITE must be Lax or None")
 	}
 
+	// Docker image ships SPA at /app/static; use it if STATIC_DIR unset.
+	if cfg.StaticDir == "" {
+		if st, err := os.Stat("/app/static"); err == nil && st.IsDir() {
+			cfg.StaticDir = "/app/static"
+		}
+	}
+
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
 	}

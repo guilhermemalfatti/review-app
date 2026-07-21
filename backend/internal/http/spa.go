@@ -6,15 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // MountSPA serves the Vite build from staticDir for non-/api routes.
 // Missing files fall back to index.html (client-side routing).
 // No-op when staticDir is empty or missing (API-only / local Go runs).
-func MountSPA(mux interface {
-	Get(pattern string, handlerFn http.HandlerFunc)
-	Head(pattern string, handlerFn http.HandlerFunc)
-}, staticDir string) {
+func MountSPA(r chi.Router, staticDir string) {
 	staticDir = strings.TrimSpace(staticDir)
 	if staticDir == "" {
 		return
@@ -30,10 +29,10 @@ func MountSPA(mux interface {
 	}
 	slog.Info("serving SPA", "static_dir", abs)
 	h := spaHandler(abs)
-	mux.Get("/", h)
-	mux.Head("/", h)
-	mux.Get("/*", h)
-	mux.Head("/*", h)
+	// Explicit / plus NotFound catch-all (chi /* wildcards are easy to misconfigure).
+	r.Get("/", h)
+	r.Head("/", h)
+	r.NotFound(h)
 }
 
 func spaHandler(root string) http.HandlerFunc {
@@ -44,7 +43,7 @@ func spaHandler(root string) http.HandlerFunc {
 			return
 		}
 
-		rel := strings.TrimPrefix(filepath.Clean(r.URL.Path), "/")
+		rel := strings.TrimPrefix(filepath.Clean("/"+r.URL.Path), "/")
 		if rel == "." || rel == "" {
 			http.ServeFile(w, r, index)
 			return
