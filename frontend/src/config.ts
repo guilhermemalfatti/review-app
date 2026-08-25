@@ -34,6 +34,7 @@ export const CATEGORIES = [
   "Xerox",
   "Carimbos",
   "Operadora de telefonia",
+  "Psicólogo",
   "Outros",
 ] as const;
 
