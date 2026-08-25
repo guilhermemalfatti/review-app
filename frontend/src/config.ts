@@ -33,6 +33,7 @@ export const CATEGORIES = [
   "Impressão",
   "Xerox",
   "Carimbos",
+  "Operadora de telefonia",
   "Outros",
 ] as const;
 
