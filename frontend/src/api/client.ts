@@ -1,5 +1,6 @@
 import type {
   AdminUser,
+  AppConfig,
   ChangePasswordPayload,
   CreatedProvider,
   CreateProviderPayload,
@@ -120,6 +121,10 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
 }
 
 export const api = {
+  getConfig() {
+    return request<AppConfig>('/api/config')
+  },
+
   signup(payload: SignupPayload) {
     return request<{ user: User }>('/api/auth/signup', {
       method: 'POST',

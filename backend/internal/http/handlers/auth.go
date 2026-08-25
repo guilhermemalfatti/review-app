@@ -43,6 +43,8 @@ type signupRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	DisplayName string `json:"display_name"`
+	Condominio  string `json:"condominio"`
+	Lote        string `json:"lote"`
 	InviteCode  string `json:"invite_code"`
 }
 
@@ -123,6 +125,8 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.Condominio = strings.TrimSpace(req.Condominio)
+	req.Lote = strings.TrimSpace(req.Lote)
 	req.InviteCode = strings.TrimSpace(req.InviteCode)
 
 	if !isValidEmail(req.Email) {
@@ -135,6 +139,18 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.DisplayName == "" {
 		WriteError(w, http.StatusBadRequest, "display_name is required")
+		return
+	}
+	if !auth.ValidCondominio(req.Condominio) {
+		WriteError(w, http.StatusBadRequest, "condominio must be Fase 1, Fase 2, Fase 3, or Fase 4")
+		return
+	}
+	if req.Lote == "" {
+		WriteError(w, http.StatusBadRequest, "lote is required")
+		return
+	}
+	if len(req.Lote) > 32 {
+		WriteError(w, http.StatusBadRequest, "lote must be at most 32 characters")
 		return
 	}
 	if !inviteCodesEqual(req.InviteCode, h.inviteCode) {
@@ -150,10 +166,10 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	var user auth.User
 	err = h.pool.QueryRow(r.Context(), `
-		INSERT INTO users (condo_id, email, password_hash, display_name, role)
-		VALUES ($1, $2, $3, $4, 'resident')
+		INSERT INTO users (condo_id, email, password_hash, display_name, role, condominio, lote)
+		VALUES ($1, $2, $3, $4, 'resident', $5, $6)
 		RETURNING id, email, display_name, role, condo_id, must_change_password
-	`, h.condoID, req.Email, hash, req.DisplayName).Scan(
+	`, h.condoID, req.Email, hash, req.DisplayName, req.Condominio, req.Lote).Scan(
 		&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.CondoID, &user.MustChangePassword,
 	)
 	if err != nil {

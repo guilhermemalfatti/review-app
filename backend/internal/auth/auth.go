@@ -19,6 +19,19 @@ const CookieName = "session"
 // DummyPasswordHash is a valid bcrypt hash used to mitigate timing leaks when a user is missing.
 const DummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 
+// CondominioFases is the allowed condominio phase values for resident signup.
+// Keep the users_condominio_check migration aligned with this list.
+var CondominioFases = []string{"Fase 1", "Fase 2", "Fase 3", "Fase 4"}
+
+func ValidCondominio(value string) bool {
+	for _, fase := range CondominioFases {
+		if value == fase {
+			return true
+		}
+	}
+	return false
+}
+
 type User struct {
 	ID                 uuid.UUID `json:"id"`
 	Email              string    `json:"email"`

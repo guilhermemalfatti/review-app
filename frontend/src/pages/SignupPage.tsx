@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ApiError } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
 import { COMMUNITY_NAME } from '../config'
@@ -12,9 +12,29 @@ export function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [condominio, setCondominio] = useState('')
+  const [lote, setLote] = useState('')
   const [inviteCode, setInviteCode] = useState('')
+  const [condominioFases, setCondominioFases] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .getConfig()
+      .then((config) => {
+        if (!cancelled) setCondominioFases(config.condominio_fases)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Não foi possível carregar as opções de condomínio.')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!loading && user) {
     return <Navigate to="/" replace />
@@ -29,6 +49,8 @@ export function SignupPage() {
         email: email.trim(),
         password,
         display_name: displayName.trim(),
+        condominio,
+        lote: lote.trim(),
         invite_code: inviteCode.trim(),
       })
       navigate('/', { replace: true })
@@ -61,6 +83,36 @@ export function SignupPage() {
             required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </label>
+
+        <label className="field">
+          <span>Condomínio</span>
+          <select
+            required
+            value={condominio}
+            onChange={(e) => setCondominio(e.target.value)}
+            disabled={condominioFases.length === 0}
+          >
+            <option value="" disabled>
+              Selecione a fase
+            </option>
+            {condominioFases.map((fase) => (
+              <option key={fase} value={fase}>
+                {fase}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Lote</span>
+          <input
+            type="text"
+            required
+            maxLength={32}
+            value={lote}
+            onChange={(e) => setLote(e.target.value)}
           />
         </label>
 

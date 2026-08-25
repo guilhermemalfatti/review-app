@@ -49,6 +49,11 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		handlers.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	r.Get("/api/config", func(w http.ResponseWriter, _ *http.Request) {
+		handlers.WriteJSON(w, http.StatusOK, map[string]any{
+			"condominio_fases": auth.CondominioFases,
+		})
+	})
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Get("/csrf", middleware.CSRFTokenHandler(d.CookieSecure, d.CookieSameSite, handlers.WriteError))

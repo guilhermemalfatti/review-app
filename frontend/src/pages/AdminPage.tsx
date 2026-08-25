@@ -364,6 +364,12 @@ export function AdminPage() {
                     {user.role === 'admin' ? 'Administrador' : 'Morador'}
                     {user.must_change_password ? ' · precisa trocar a senha' : ''}
                   </p>
+                  {(user.condominio || user.lote) && (
+                    <p className="admin-card__meta">
+                      {user.condominio ? user.condominio : '—'}
+                      {user.lote ? ` · Lote ${user.lote}` : ''}
+                    </p>
+                  )}
                   <div className="admin-card__actions">
                     <button
                       type="button"

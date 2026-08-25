@@ -495,13 +495,15 @@ type AdminUserItem struct {
 	Email              string    `json:"email"`
 	DisplayName        string    `json:"display_name"`
 	Role               string    `json:"role"`
+	Condominio         *string   `json:"condominio"`
+	Lote               *string   `json:"lote"`
 	MustChangePassword bool      `json:"must_change_password"`
 	CreatedAt          time.Time `json:"created_at"`
 }
 
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(), `
-		SELECT id, email, display_name, role, must_change_password, created_at
+		SELECT id, email, display_name, role, condominio, lote, must_change_password, created_at
 		FROM users
 		WHERE condo_id = $1
 		ORDER BY display_name ASC, email ASC
@@ -516,7 +518,7 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item AdminUserItem
 		if err := rows.Scan(
-			&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.MustChangePassword, &item.CreatedAt,
+			&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.Condominio, &item.Lote, &item.MustChangePassword, &item.CreatedAt,
 		); err != nil {
 			WriteServerError(w, r, "failed to scan user", err)
 			return
@@ -571,9 +573,9 @@ func (h *AdminHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		UPDATE users
 		SET password_hash = $1, must_change_password = true
 		WHERE id = $2 AND condo_id = $3
-		RETURNING id, email, display_name, role, must_change_password, created_at
+		RETURNING id, email, display_name, role, condominio, lote, must_change_password, created_at
 	`, hash, id, h.condoID).Scan(
-		&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.MustChangePassword, &item.CreatedAt,
+		&item.ID, &item.Email, &item.DisplayName, &item.Role, &item.Condominio, &item.Lote, &item.MustChangePassword, &item.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -14,6 +14,8 @@ export interface AdminUser {
   email: string
   display_name: string
   role: UserRole
+  condominio: string | null
+  lote: string | null
   must_change_password: boolean
   created_at: string
 }
@@ -103,10 +105,16 @@ export interface PendingReview {
   status?: string
 }
 
+export interface AppConfig {
+  condominio_fases: string[]
+}
+
 export interface SignupPayload {
   email: string
   password: string
   display_name: string
+  condominio: string
+  lote: string
   invite_code: string
 }
 
