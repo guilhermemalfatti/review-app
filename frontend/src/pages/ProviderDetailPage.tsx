@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import type { ProviderDetail } from '../api/types'
-import { ScoreCard, ScoreInline } from '../components/ScoreDisplay'
+import { ScoreInline, ScoreRow } from '../components/ScoreDisplay'
 import { StatusMessage } from '../components/StatusMessage'
 import { formatDate, indicationSummary } from '../lib/format'
 
@@ -65,6 +65,12 @@ export function ProviderDetailPage() {
   }
 
   const reviews = provider.reviews ?? []
+  const aggregates = provider.aggregates
+  const hasScores =
+    aggregates.avg_price != null ||
+    aggregates.avg_quality != null ||
+    aggregates.avg_deadline != null ||
+    aggregates.avg_overall != null
 
   return (
     <div className="page page--detail page-enter">
@@ -76,7 +82,7 @@ export function ProviderDetailPage() {
         <p className="detail-header__category">{provider.category}</p>
         <h1 className="detail-header__name">{provider.name}</h1>
         <p className="detail-header__summary">
-          {indicationSummary(provider.aggregates)}
+          {indicationSummary(aggregates)}
         </p>
         {provider.phone && (
           <p className="detail-header__phone">
@@ -87,38 +93,28 @@ export function ProviderDetailPage() {
         {provider.notes && <p className="detail-header__notes">{provider.notes}</p>}
       </header>
 
-      <section className="score-board" aria-label="Notas dos vizinhos">
-        <h2 className="score-board__title">Notas dos vizinhos</h2>
-        <p className="score-board__legend">Cada nota vai de 1 (ruim) a 5 (excelente).</p>
-        <div className="score-board__grid">
-          <ScoreCard
-            label="Preço"
-            hint="Vale o que cobra?"
-            value={provider.aggregates.avg_price}
-          />
-          <ScoreCard
-            label="Qualidade"
-            hint="O serviço ficou bom?"
-            value={provider.aggregates.avg_quality}
-          />
-          <ScoreCard
-            label="Prazo"
-            hint="Cumpriu o tempo combinado?"
-            value={provider.aggregates.avg_deadline}
-          />
-          <ScoreCard
-            label="Geral"
-            hint="Média de tudo"
-            value={provider.aggregates.avg_overall}
-          />
-        </div>
-      </section>
-
       <div className="detail-actions">
         <Link to={`/providers/${provider.id}/review`} className="btn btn--primary">
           Escrever indicação
         </Link>
       </div>
+
+      <section className="score-board" aria-label="Notas dos vizinhos">
+        <h2 className="score-board__title">Notas dos vizinhos</h2>
+        <p className="score-board__legend">Cada nota vai de 1 (ruim) a 5 (excelente).</p>
+        {hasScores ? (
+          <ul className="score-board__list">
+            <ScoreRow label="Preço" value={aggregates.avg_price} />
+            <ScoreRow label="Qualidade" value={aggregates.avg_quality} />
+            <ScoreRow label="Prazo" value={aggregates.avg_deadline} />
+            <ScoreRow label="Geral" value={aggregates.avg_overall} emphasize />
+          </ul>
+        ) : (
+          <p className="score-board__empty">
+            Ainda sem notas — seja o primeiro a indicar.
+          </p>
+        )}
+      </section>
 
       <section className="reviews-section" aria-labelledby="reviews-heading">
         <h2 id="reviews-heading">O que os vizinhos disseram</h2>

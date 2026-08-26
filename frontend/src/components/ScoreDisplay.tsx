@@ -1,4 +1,4 @@
-import { formatScore, scoreWord } from '../lib/format'
+import { formatScore } from '../lib/format'
 
 function StarRow({ value, max = 5 }: { value: number | null | undefined; max?: number }) {
   if (value == null || Number.isNaN(value)) {
@@ -18,35 +18,25 @@ function StarRow({ value, max = 5 }: { value: number | null | undefined; max?: n
   )
 }
 
-export function ScoreCard({
+export function ScoreRow({
   label,
-  hint,
   value,
+  emphasize = false,
 }: {
   label: string
-  hint: string
   value: number | null | undefined
+  emphasize?: boolean
 }) {
   const hasValue = value != null && !Number.isNaN(value)
-  const word = scoreWord(value)
 
   return (
-    <div className="score-card">
-      <p className="score-card__label">{label}</p>
-      <p className="score-card__hint">{hint}</p>
+    <li className={`score-row${emphasize ? ' score-row--overall' : ''}`}>
+      <span className="score-row__label">{label}</span>
       <StarRow value={value} />
-      <p className="score-card__value">
-        {hasValue ? (
-          <>
-            <strong>{formatScore(value)}</strong>
-            <span> de 5</span>
-            {word ? <span className="score-card__word"> — {word}</span> : null}
-          </>
-        ) : (
-          <span className="score-card__missing">Sem notas ainda</span>
-        )}
-      </p>
-    </div>
+      <span className="score-row__num" aria-label={hasValue ? `${formatScore(value)} de 5` : 'Sem nota'}>
+        {hasValue ? formatScore(value) : '—'}
+      </span>
+    </li>
   )
 }
 
