@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function ChangePasswordPage() {
   const { user, loading, mustChangePassword, changePassword } = useAuth()
@@ -13,6 +14,8 @@ export function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  usePageTitle('Nova senha · Indica')
 
   if (!loading && !user) {
     return <Navigate to="/login" replace />

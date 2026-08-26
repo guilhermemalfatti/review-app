@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { CATEGORIES } from '../config'
 import { StatusMessage } from '../components/StatusMessage'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function SuggestProviderPage() {
   const [name, setName] = useState('')
@@ -12,6 +13,8 @@ export function SuggestProviderPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  usePageTitle('Sugerir prestador · Indica')
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()

@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
 import { COMMUNITY_NAME } from '../config'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function SignupPage() {
   const { signup, user, loading } = useAuth()
@@ -18,6 +19,8 @@ export function SignupPage() {
   const [condominioFases, setCondominioFases] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  usePageTitle('Criar conta · Indica')
 
   useEffect(() => {
     let cancelled = false

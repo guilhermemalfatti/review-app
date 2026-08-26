@@ -13,6 +13,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        Ir para o conteúdo
+      </a>
+
       <header className="site-header">
         <div className="site-header__inner">
           <Link to="/" className="brand" aria-label="Indica — início">
@@ -35,7 +39,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 to="/admin"
                 className={({ isActive }) => (isActive ? 'is-active' : undefined)}
               >
-                Admin
+                Aprovar
               </NavLink>
             )}
             {!loading &&
@@ -55,7 +59,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="site-main">{children}</main>
+      <main id="main-content" className="site-main" tabIndex={-1}>
+        {children}
+      </main>
 
       <footer className="site-footer">
         <p>

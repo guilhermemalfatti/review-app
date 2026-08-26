@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import type { MyReview, ProviderDetail } from '../api/types'
 import { StatusMessage } from '../components/StatusMessage'
+import { usePageTitle } from '../lib/usePageTitle'
 
 function scoreToInput(value: number | null | undefined): string {
   return value == null ? '' : String(value)
@@ -28,6 +29,10 @@ export function ReviewPage() {
   const [success, setSuccess] = useState(false)
   const [replaced, setReplaced] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  usePageTitle(
+    provider ? `Indicar ${provider.name} · Indica` : 'Indicação · Indica',
+  )
 
   useEffect(() => {
     if (!id) return
@@ -99,7 +104,7 @@ export function ReviewPage() {
 
     if (existingReview) {
       const ok = window.confirm(
-        'Você já tem uma indicação para este prestador. Enviar de novo cria uma nova versão para aprovação; a indicação publicada hoje continua visível até o administrador decidir. Deseja continuar?',
+        'Você já tem uma indicação. Enviar de novo cria uma nova versão para aprovação. A atual continua visível até lá. Continuar?',
       )
       if (!ok) return
     }
@@ -177,16 +182,14 @@ export function ReviewPage() {
       <header className="form-page-header">
         <p className="form-page-header__eyebrow">{provider.category}</p>
         <h1>Indicar {provider.name}</h1>
-        <p>Conte como foi o serviço. Sua indicação será publicada após aprovação.</p>
+        <p>Conte como foi o serviço. Sua indicação será revisada antes de aparecer.</p>
       </header>
 
       {existingReview && (
         <StatusMessage tone="info">
-          Você já tem uma indicação para este prestador
-          {statusLabel ? ` (${statusLabel})` : ''}. Enviar de novo cria uma{' '}
-          <strong>nova versão</strong> para aprovação; a indicação já publicada
-          continua visível até o administrador aceitar a nova (aí a antiga deixa
-          de aparecer) ou rejeitar (aí a antiga permanece).
+          Você já tem uma indicação
+          {statusLabel ? ` (${statusLabel})` : ''}. A indicação atual continua
+          visível até a nova ser aprovada.
         </StatusMessage>
       )}
 
@@ -195,8 +198,8 @@ export function ReviewPage() {
       {success && (
         <StatusMessage tone="success">
           {replaced
-            ? 'Nova versão enviada. Ela aguarda aprovação; a indicação publicada anteriormente continua visível por enquanto.'
-            : 'Indicação enviada. Ela aguarda aprovação do administrador antes de aparecer publicamente.'}
+            ? 'Nova versão enviada. Ela aguarda aprovação; a atual continua visível por enquanto.'
+            : 'Indicação enviada. Ela será revisada antes de aparecer.'}
         </StatusMessage>
       )}
 

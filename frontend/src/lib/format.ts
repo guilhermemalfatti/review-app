@@ -34,22 +34,32 @@ export function scoreWord(value: number | null | undefined): string | null {
   }
 }
 
-export function indicationSummary(aggregates: {
+export type IndicationSummaryParts = {
+  recommends: string
+  score: string
+  lastService: string | null
+}
+
+export function indicationSummaryParts(aggregates: {
   recommend_count: number
   not_recommend_count: number
   avg_overall: number | null
   last_service_date: string | null
-}): string {
-  const rec = aggregates.recommend_count
-  const not = aggregates.not_recommend_count
+}): IndicationSummaryParts {
+  const recommends = `${aggregates.recommend_count} recomendam · ${aggregates.not_recommend_count} não`
+
   const avg = formatScore(aggregates.avg_overall)
   const word = scoreWord(aggregates.avg_overall)
-  const last = formatDate(aggregates.last_service_date)
-  const note =
+  const score =
     aggregates.avg_overall == null
-      ? 'sem nota ainda'
+      ? 'Sem nota ainda'
       : word
-        ? `nota ${avg} de 5 (${word})`
-        : `nota ${avg} de 5`
-  return `${rec} recomendam · ${not} não · ${note} · último serviço ${last}`
+        ? `Nota ${avg} — ${word}`
+        : `Nota ${avg} de 5`
+
+  const lastService = aggregates.last_service_date
+    ? `Último serviço ${formatDate(aggregates.last_service_date)}`
+    : null
+
+  return { recommends, score, lastService }
 }

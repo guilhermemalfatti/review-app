@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../api/client'
 import type { AdminUser, PendingProvider, PendingReview } from '../api/types'
 import { StatusMessage } from '../components/StatusMessage'
+import { usePageTitle } from '../lib/usePageTitle'
 
 type AdminTab = 'providers' | 'reviews' | 'users'
 
@@ -20,6 +21,8 @@ export function AdminPage() {
     name: string
     password: string
   } | null>(null)
+
+  usePageTitle('Aprovar · Indica')
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -132,8 +135,10 @@ export function AdminPage() {
       <div className="admin-tabs" role="tablist" aria-label="Seções">
         <button
           type="button"
+          id="admin-tab-providers"
           role="tab"
           aria-selected={tab === 'providers'}
+          aria-controls="admin-panel-providers"
           className={`admin-tab ${tab === 'providers' ? 'admin-tab--active' : ''}`}
           onClick={() => switchTab('providers')}
         >
@@ -142,8 +147,10 @@ export function AdminPage() {
         </button>
         <button
           type="button"
+          id="admin-tab-reviews"
           role="tab"
           aria-selected={tab === 'reviews'}
+          aria-controls="admin-panel-reviews"
           className={`admin-tab ${tab === 'reviews' ? 'admin-tab--active' : ''}`}
           onClick={() => switchTab('reviews')}
         >
@@ -152,8 +159,10 @@ export function AdminPage() {
         </button>
         <button
           type="button"
+          id="admin-tab-users"
           role="tab"
           aria-selected={tab === 'users'}
+          aria-controls="admin-panel-users"
           className={`admin-tab ${tab === 'users' ? 'admin-tab--active' : ''}`}
           onClick={() => switchTab('users')}
         >
@@ -185,7 +194,11 @@ export function AdminPage() {
       {error && <StatusMessage tone="error">{error}</StatusMessage>}
 
       {!loading && !error && tab === 'providers' && (
-        <>
+        <div
+          id="admin-panel-providers"
+          role="tabpanel"
+          aria-labelledby="admin-tab-providers"
+        >
           <section className="admin-panel" aria-label="Novos prestadores">
             <h2 className="admin-panel__heading">Aguardando aprovação</h2>
             <p className="admin-panel__help">
@@ -277,11 +290,17 @@ export function AdminPage() {
               </ul>
             )}
           </section>
-        </>
+        </div>
       )}
 
       {!loading && !error && tab === 'reviews' && (
-        <section className="admin-panel" aria-label="Novas indicações">
+        <section
+          id="admin-panel-reviews"
+          className="admin-panel"
+          role="tabpanel"
+          aria-labelledby="admin-tab-reviews"
+          aria-label="Novas indicações"
+        >
           <h2 className="admin-panel__heading">Aguardando aprovação</h2>
           <p className="admin-panel__help">
             Leia o comentário. Se estiver ok, aprove. Se tiver palavras ruins, rejeite.
@@ -348,7 +367,13 @@ export function AdminPage() {
       )}
 
       {!loading && !error && tab === 'users' && (
-        <section className="admin-panel" aria-label="Moradores">
+        <section
+          id="admin-panel-users"
+          className="admin-panel"
+          role="tabpanel"
+          aria-labelledby="admin-tab-users"
+          aria-label="Moradores"
+        >
           <p className="admin-panel__help">
             Se alguém esqueceu a senha, crie uma nova e diga para a pessoa.
           </p>

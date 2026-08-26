@@ -5,6 +5,7 @@ import { CategoryChips } from '../components/CategoryChips'
 import { ProviderRow } from '../components/ProviderRow'
 import { StatusMessage } from '../components/StatusMessage'
 import { COMMUNITY_NAME } from '../config'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function HomePage() {
   const [providers, setProviders] = useState<ProviderListItem[]>([])
@@ -13,6 +14,8 @@ export function HomePage() {
   const [searchInput, setSearchInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  usePageTitle('Prestadores · Indica')
 
   useEffect(() => {
     let cancelled = false
@@ -55,11 +58,9 @@ export function HomePage() {
   return (
     <div className="page page--home page-enter">
       <section className="hero">
-        <p className="hero__eyebrow">Comunidade {COMMUNITY_NAME}</p>
         <h1 className="hero__brand">Indica</h1>
         <p className="hero__lead">
-          Prestadores de confiança indicados por quem mora ao lado, antes de
-          chamar, pergunte aos vizinhos.
+          Prestadores indicados pelos vizinhos do {COMMUNITY_NAME}.
         </p>
       </section>
 

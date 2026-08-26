@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { StatusMessage } from '../components/StatusMessage'
+import { usePageTitle } from '../lib/usePageTitle'
 
 function safeRedirectPath(from: unknown): string {
   if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')) {
@@ -21,6 +22,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  usePageTitle('Entrar · Indica')
 
   if (!loading && user) {
     return <Navigate to={mustChangePassword ? '/change-password' : from} replace />
@@ -48,14 +51,14 @@ export function LoginPage() {
     <div className="page page--auth page-enter">
       <header className="auth-header">
         <h1>Entrar</h1>
-        <p>Acesse com o e-mail do condomínio para indicar e sugerir prestadores.</p>
+        <p>Entre com seu e-mail para ver telefones, indicar e sugerir prestadores.</p>
       </header>
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
         {error && <StatusMessage tone="error">{error}</StatusMessage>}
 
         <label className="field">
-          <span>E-mail</span>
+          <span>Seu e-mail</span>
           <input
             type="email"
             autoComplete="email"

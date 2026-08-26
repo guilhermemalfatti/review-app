@@ -2,15 +2,26 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import type { ProviderDetail } from '../api/types'
+import { useAuth } from '../auth/AuthContext'
 import { ScoreInline, ScoreRow } from '../components/ScoreDisplay'
 import { StatusMessage } from '../components/StatusMessage'
-import { formatDate, indicationSummary } from '../lib/format'
+import { formatDate, indicationSummaryParts } from '../lib/format'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function ProviderDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { user, loading: authLoading } = useAuth()
   const [provider, setProvider] = useState<ProviderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  usePageTitle(
+    provider
+      ? `${provider.name} · Indica`
+      : error
+        ? 'Prestador · Indica'
+        : 'Carregando · Indica',
+  )
 
   useEffect(() => {
     if (!id) return
@@ -66,11 +77,13 @@ export function ProviderDetailPage() {
 
   const reviews = provider.reviews ?? []
   const aggregates = provider.aggregates
+  const summary = indicationSummaryParts(aggregates)
   const hasScores =
     aggregates.avg_price != null ||
     aggregates.avg_quality != null ||
     aggregates.avg_deadline != null ||
     aggregates.avg_overall != null
+  const showPhoneGate = !authLoading && !user
 
   return (
     <div className="page page--detail page-enter">
@@ -81,14 +94,30 @@ export function ProviderDetailPage() {
       <header className="detail-header">
         <p className="detail-header__category">{provider.category}</p>
         <h1 className="detail-header__name">{provider.name}</h1>
-        <p className="detail-header__summary">
-          {indicationSummary(aggregates)}
-        </p>
+        <div className="detail-header__summary">
+          <p className="detail-header__summary-line">{summary.recommends}</p>
+          <p className="detail-header__summary-line">{summary.score}</p>
+          {summary.lastService && (
+            <p className="detail-header__summary-line">{summary.lastService}</p>
+          )}
+        </div>
         {provider.phone && (
           <p className="detail-header__phone">
             Telefone:{' '}
             <a href={`tel:${provider.phone.replace(/\D/g, '')}`}>{provider.phone}</a>
           </p>
+        )}
+        {showPhoneGate && (
+          <div className="detail-header__phone-gate">
+            <p>Entre para ver o telefone</p>
+            <Link
+              to="/login"
+              state={{ from: `/providers/${provider.id}` }}
+              className="btn btn--primary"
+            >
+              Entrar
+            </Link>
+          </div>
         )}
         {provider.notes && <p className="detail-header__notes">{provider.notes}</p>}
       </header>
