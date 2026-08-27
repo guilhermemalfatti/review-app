@@ -2,12 +2,16 @@
 
 Residents of condo **Cantegril** share trusted service-provider indications. This monorepo has:
 
-- `/backend` — Go API (this doc)
-- `/frontend` — Vite/React app (expects the API on `http://localhost:8080`)
+- `/backend` — Go API
+- `/frontend` — Vite/React SPA
+- Root `Dockerfile` — production image (SPA + API, same origin)
+
+**Production:** Google Cloud Run (`southamerica-east1`) + optional Firebase Hosting for the custom domain `indica-cantegril.com.br`.
 
 ## Prerequisites
 
 - Go 1.26+
+- Node 22+ (frontend)
 - Docker + Docker Compose
 
 ## 1. Environment
@@ -23,6 +27,7 @@ Defaults:
 | `DATABASE_URL` | `postgres://indica:indica@localhost:5432/indica?sslmode=disable` |
 | `APP_ENV` | `development` (`production` enables fail-closed checks) |
 | `COOKIE_SECURE` | unset → `true` when `APP_ENV=production`, else `false` |
+| `COOKIE_SAMESITE` | `Lax` |
 | `INVITE_CODE` | `CANTEGRIL2026` |
 | `CORS_ORIGIN` | `http://localhost:5173` |
 | `PORT` | `8080` |
@@ -79,44 +84,72 @@ Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` to the 
 
 Optional frontend env (see `frontend/.env.example`): `VITE_API_URL` (empty locally), `VITE_BASE_PATH` (default `/`).
 
-## 5. Production deploy (pilot)
+## 5. Production deploy (Cloud Run)
 
-Preferred: **one Render Web Service** serves API + SPA (same origin → cookies work on iOS).
+Preferred: **one Cloud Run service** serves API + SPA (same origin → first-party cookies on mobile).
 
 | Piece | Where |
 |---|---|
 | Postgres | Supabase (Session pooler URI + `sslmode=require`) |
-| App (API + SPA) | Render Web Service — Docker from **repo-root** `Dockerfile` |
+| App (API + SPA) | Cloud Run — Docker from **repo-root** `Dockerfile` |
+| Custom domain (optional) | Firebase Hosting rewrite → Cloud Run |
 
-**Render settings**
+### Cloud Run
 
-- Root Directory: *(empty / repo root)*
-- Dockerfile Path: `./Dockerfile`
-- Docker build context: repo root
+- Region: `southamerica-east1` (or another region you choose)
+- Build: continuous deploy from GitHub using root `Dockerfile`, or:
+  ```bash
+  gcloud run deploy SERVICE_NAME \
+    --source . \
+    --region southamerica-east1 \
+    --allow-unauthenticated
+  ```
+- Container listens on `PORT` (Cloud Run sets this automatically)
 
-**Render env (minimum):**
+**Cloud Run env (minimum):**
 
 | Variable | Value |
 |---|---|
 | `APP_ENV` | `production` |
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAMESITE` | `Lax` (same-origin; default) |
-| `CORS_ORIGIN` | `https://YOUR-SERVICE.onrender.com` (no trailing slash) |
+| `CORS_ORIGIN` | `https://YOUR-SERVICE-xxxxx.REGION.run.app` (no trailing slash), or your custom domain once live |
 | `DATABASE_URL` | Supabase Session pooler URI |
 | `INVITE_CODE` / `ADMIN_PASSWORD` | strong non-default values |
 | `SEED_DEMO` | `false` |
 
-Open `https://YOUR-SERVICE.onrender.com/` for the app and `/api/health` for the API. `STATIC_DIR=/app/static` is set in the image.
+`STATIC_DIR=/app/static` and `MIGRATIONS_DIR=/app/migrations` are set in the image.
 
-Optional legacy: GitHub Pages + API-only `backend/Dockerfile` requires `COOKIE_SAMESITE=None` and `CORS_ORIGIN=https://guilhermemalfatti.github.io` (mobile Safari often still blocks those cookies).
+Open `https://YOUR-SERVICE-….run.app/` for the app and `/api/health` for the API.
 
-Local Docker smoke test from repo root:
+### Custom domain (Firebase Hosting)
+
+Cloud Run **domain mapping is not available** in `southamerica-east1`. Use Firebase Hosting as a reverse proxy:
+
+1. Add Firebase to the **same** GCP project as Cloud Run
+2. Configure `firebase.json` (already in repo) — rewrite `**` → Cloud Run service `indica-02` in `southamerica-east1`
+3. Deploy Hosting:
+   ```bash
+   npm i -g firebase-tools
+   firebase login
+   firebase use YOUR_GCP_PROJECT_ID
+   firebase deploy --only hosting
+   ```
+4. Firebase Console → Hosting → **Add custom domain** (e.g. `indica-cantegril.com.br`)
+5. Add the DNS records Firebase shows at your registrar (e.g. Registro.br)
+6. When the domain is **Connected**, set Cloud Run:
+   ```text
+   CORS_ORIGIN=https://indica-cantegril.com.br
+   ```
+
+App deploys stay on Cloud Run (GitHub / `gcloud`). `firebase deploy --only hosting` only updates the Hosting proxy/domain config.
+
+### Local Docker smoke test
 
 ```bash
 docker build -t indica .
 docker run --rm -p 8080:8080 --env-file .env -e STATIC_DIR=/app/static indica
 ```
-
 
 ## CSRF
 
@@ -145,6 +178,7 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 | Method | Path | Auth |
 |---|---|---|
 | GET | `/api/health` | public |
+| GET | `/api/config` | public (e.g. condominio fases) |
 | GET | `/api/auth/csrf` | public (issues CSRF cookie + token) |
 | POST | `/api/auth/signup` | public (invite code) |
 | POST | `/api/auth/login` | public |
@@ -158,6 +192,7 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 | GET | `/api/admin/providers` | admin |
 | POST | `/api/admin/providers/:id/approve` | admin |
 | POST | `/api/admin/providers/:id/reject` | admin |
+| POST | `/api/admin/providers/:id/remove` | admin |
 | GET | `/api/admin/reviews` | admin |
 | POST | `/api/admin/reviews/:id/approve` | admin |
 | POST | `/api/admin/reviews/:id/reject` | admin |
