@@ -1,2 +1,3 @@
 .firebase/
 *.log
+.env
