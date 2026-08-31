@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { PasswordField } from '../components/PasswordField'
 import { StatusMessage } from '../components/StatusMessage'
 import { COMMUNITY_NAME } from '../config'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -130,17 +131,14 @@ export function SignupPage() {
           />
         </label>
 
-        <label className="field">
-          <span>Senha</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label="Senha"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={password}
+          onChange={setPassword}
+        />
 
         <label className="field">
           <span>Código de convite</span>

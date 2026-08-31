@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { PasswordField } from '../components/PasswordField'
 import { StatusMessage } from '../components/StatusMessage'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -66,40 +67,31 @@ export function ChangePasswordPage() {
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
         {error && <StatusMessage tone="error">{error}</StatusMessage>}
 
-        <label className="field">
-          <span>Senha atual (temporária)</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label="Senha atual (temporária)"
+          autoComplete="current-password"
+          required
+          value={currentPassword}
+          onChange={setCurrentPassword}
+        />
 
-        <label className="field">
-          <span>Nova senha</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label="Nova senha"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={newPassword}
+          onChange={setNewPassword}
+        />
 
-        <label className="field">
-          <span>Confirmar nova senha</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label="Confirmar nova senha"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+        />
 
         <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
           {submitting ? 'Salvando…' : 'Salvar nova senha'}

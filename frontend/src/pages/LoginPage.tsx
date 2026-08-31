@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { PasswordField } from '../components/PasswordField'
 import { StatusMessage } from '../components/StatusMessage'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -68,16 +69,13 @@ export function LoginPage() {
           />
         </label>
 
-        <label className="field">
-          <span>Senha</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label="Senha"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={setPassword}
+        />
 
         <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
           {submitting ? 'Entrando…' : 'Entrar'}
