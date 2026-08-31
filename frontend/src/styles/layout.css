@@ -116,6 +116,23 @@
   border-bottom-color: var(--leaf);
 }
 
+.site-nav__user {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--leaf-deep);
+  padding: 10px 8px;
+}
+
+@media (min-width: 768px) {
+  .site-nav__user {
+    max-width: 14rem;
+  }
+}
+
 .site-main {
   flex: 1;
   width: 100%;

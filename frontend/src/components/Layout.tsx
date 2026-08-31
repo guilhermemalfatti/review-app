@@ -50,9 +50,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
             {!loading &&
               (user ? (
-                <button type="button" className="nav-button" onClick={() => void handleLogout()}>
-                  Sair
-                </button>
+                <>
+                  <span className="site-nav__user" title={user.email}>
+                    Olá, {user.display_name}
+                  </span>
+                  <button type="button" className="nav-button" onClick={() => void handleLogout()}>
+                    Sair
+                  </button>
+                </>
               ) : (
                 <NavLink
                   to="/login"
