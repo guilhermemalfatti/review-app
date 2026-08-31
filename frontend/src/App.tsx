@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminPage } from './pages/AdminPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import { DonatePage } from './pages/DonatePage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProviderDetailPage } from './pages/ProviderDetailPage'
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/providers/:id" element={<ProviderDetailPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route path="/apoiar" element={<DonatePage />} />
               <Route path="/change-password" element={
                 <ProtectedRoute>
                   <ChangePasswordPage />
