@@ -113,7 +113,7 @@ Preferred: **one Cloud Run service** serves API + SPA (same origin → first-par
 | `APP_ENV` | `production` |
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAMESITE` | `Lax` (same-origin; default) |
-| `CORS_ORIGIN` | `https://YOUR-SERVICE-xxxxx.REGION.run.app` (no trailing slash), or your custom domain once live |
+| `CORS_ORIGIN` | `https://indica-cantegril.com.br` (custom domain; no trailing slash). Must match the URL users open. |
 | `DATABASE_URL` | Supabase Session pooler URI |
 | `INVITE_CODE` / `ADMIN_PASSWORD` | strong non-default values |
 | `SEED_DEMO` | `false` |
@@ -199,4 +199,4 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 | GET | `/api/admin/users` | admin |
 | POST | `/api/admin/users/:id/reset-password` | admin |
 
-Session cookie name: `session` (HTTP-only). CSRF cookie name: `csrf` (readable by JS).
+Session cookie name: `__session` (HTTP-only). Required name so Firebase Hosting forwards the cookie to Cloud Run. CSRF cookie name: `csrf` (readable by JS; mutating requests also accept a matching `Origin`).

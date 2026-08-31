@@ -14,7 +14,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const CookieName = "session"
+// CookieName is the HTTP-only auth cookie.
+// Must be "__session" so Firebase Hosting forwards it to Cloud Run
+// (other cookie names are stripped by the Hosting CDN).
+const CookieName = "__session"
 
 // DummyPasswordHash is a valid bcrypt hash used to mitigate timing leaks when a user is missing.
 const DummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"

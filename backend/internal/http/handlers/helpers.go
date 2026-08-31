@@ -13,6 +13,8 @@ const maxJSONBody = 1 << 20 // 1 MiB
 
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	// Keep Firebase Hosting CDN from caching auth-sensitive API responses.
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }

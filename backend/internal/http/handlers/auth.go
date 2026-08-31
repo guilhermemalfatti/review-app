@@ -58,6 +58,17 @@ type userResponse struct {
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	// Drop the pre-Firebase cookie name if present.
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: h.cookieSameSite,
+		Secure:   h.cookieSecure,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
@@ -68,6 +79,7 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expi
 		Expires:  expiresAt,
 	})
 	slog.Info("session cookie set",
+		"name", auth.CookieName,
 		"secure", h.cookieSecure,
 		"same_site", sameSiteLabel(h.cookieSameSite),
 		"expires_at", expiresAt.UTC().Format(time.RFC3339),
@@ -75,16 +87,18 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expi
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.CookieName,
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: h.cookieSameSite,
-		Secure:   h.cookieSecure,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0),
-	})
+	for _, name := range []string{auth.CookieName, "session"} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: h.cookieSameSite,
+			Secure:   h.cookieSecure,
+			MaxAge:   -1,
+			Expires:  time.Unix(0, 0),
+		})
+	}
 }
 
 func sameSiteLabel(s http.SameSite) string {
