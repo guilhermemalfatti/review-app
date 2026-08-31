@@ -35,6 +35,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Apoiar
             </NavLink>
             <NavLink
+              to="/sobre"
+              className={({ isActive }) => (isActive ? 'is-active' : undefined)}
+            >
+              Sobre
+            </NavLink>
+            <NavLink
               to="/providers/new"
               className={({ isActive }) => (isActive ? 'is-active' : undefined)}
             >
@@ -79,6 +85,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           Indica · recomendações entre vizinhos · <span>{COMMUNITY_NAME}</span>
         </p>
         <p className="site-footer__support">
+          <Link to="/sobre">Sobre</Link>
+          {' · '}
           <Link to="/apoiar">Apoie com um café</Link>
         </p>
       </footer>

@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ScoreInline, ScoreRow } from '../components/ScoreDisplay'
 import { StatusMessage } from '../components/StatusMessage'
 import { formatDate, indicationSummaryParts } from '../lib/format'
+import { whatsAppURL } from '../lib/phone'
 import { usePageTitle } from '../lib/usePageTitle'
 
 export function ProviderDetailPage() {
@@ -84,6 +85,7 @@ export function ProviderDetailPage() {
     aggregates.avg_deadline != null ||
     aggregates.avg_overall != null
   const showPhoneGate = !authLoading && !user
+  const waURL = provider.phone ? whatsAppURL(provider.phone) : null
 
   return (
     <div className="page page--detail page-enter">
@@ -102,10 +104,22 @@ export function ProviderDetailPage() {
           )}
         </div>
         {provider.phone && (
-          <p className="detail-header__phone">
-            Telefone:{' '}
-            <a href={`tel:${provider.phone.replace(/\D/g, '')}`}>{provider.phone}</a>
-          </p>
+          <div className="detail-header__phone">
+            <p>
+              Telefone:{' '}
+              <a href={`tel:${provider.phone.replace(/\D/g, '')}`}>{provider.phone}</a>
+            </p>
+            {waURL && (
+              <a
+                href={waURL}
+                className="btn btn--ghost btn--small"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WhatsApp
+              </a>
+            )}
+          </div>
         )}
         {showPhoneGate && (
           <div className="detail-header__phone-gate">

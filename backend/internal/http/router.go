@@ -67,6 +67,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.OptionalAuth(d.Sessions, handlers.WriteError))
 		r.Get("/api/providers", providersH.List)
+		r.Get("/api/providers/categories", providersH.ListCategories)
 		r.Get("/api/providers/{id}", providersH.Get)
 	})
 

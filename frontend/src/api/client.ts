@@ -162,6 +162,10 @@ export const api = {
     return request<ProviderListItem[]>(`/api/providers${query ? `?${query}` : ''}`)
   },
 
+  listCategories() {
+    return request<string[]>('/api/providers/categories')
+  },
+
   getProvider(id: string) {
     return request<ProviderDetail>(`/api/providers/${id}`)
   },

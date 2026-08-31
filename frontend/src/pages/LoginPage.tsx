@@ -77,6 +77,11 @@ export function LoginPage() {
           onChange={setPassword}
         />
 
+        <p className="auth-hint">
+          Esqueceu a senha?{' '}
+          <Link to="/sobre">Fale com um administrador do Indica</Link>.
+        </p>
+
         <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>

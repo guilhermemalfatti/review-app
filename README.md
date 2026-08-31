@@ -186,6 +186,7 @@ Admins can list users and reset passwords in the Admin UI. A reset issues a temp
 | GET | `/api/auth/me` | session |
 | POST | `/api/auth/change-password` | session |
 | GET | `/api/providers` | public (approved only; phone hidden unless logged in) |
+| GET | `/api/providers/categories` | public (distinct categories with approved providers) |
 | GET | `/api/providers/:id` | public (approved; admin can see others; phone hidden unless logged in) |
 | POST | `/api/providers` | session |
 | POST | `/api/providers/:id/reviews` | session |

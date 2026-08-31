@@ -126,6 +126,35 @@ func scanAggregates(hired, recommend, notRecommend int, avgPrice, avgQuality, av
 	}
 }
 
+func (h *ProvidersHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT DISTINCT category
+		FROM providers
+		WHERE condo_id = $1 AND status = 'approved' AND category <> ''
+		ORDER BY category ASC
+	`, h.condoID)
+	if err != nil {
+		WriteServerError(w, r, "failed to list categories", err)
+		return
+	}
+	defer rows.Close()
+
+	categories := make([]string, 0)
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			WriteServerError(w, r, "failed to scan category", err)
+			return
+		}
+		categories = append(categories, category)
+	}
+	if err := rows.Err(); err != nil {
+		WriteServerError(w, r, "failed to list categories", err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, categories)
+}
+
 func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
 	q := strings.TrimSpace(r.URL.Query().Get("q"))

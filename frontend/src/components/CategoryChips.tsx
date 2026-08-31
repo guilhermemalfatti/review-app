@@ -1,11 +1,10 @@
-import { CATEGORIES } from '../config'
-
 interface CategoryChipsProps {
   value: string
   onChange: (category: string) => void
+  categories: string[]
 }
 
-export function CategoryChips({ value, onChange }: CategoryChipsProps) {
+export function CategoryChips({ value, onChange, categories }: CategoryChipsProps) {
   return (
     <>
       <label className="category-select" htmlFor="category-filter">
@@ -16,7 +15,7 @@ export function CategoryChips({ value, onChange }: CategoryChipsProps) {
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">Todas</option>
-          {CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <option key={category} value={category}>
               {category}
             </option>
@@ -33,7 +32,7 @@ export function CategoryChips({ value, onChange }: CategoryChipsProps) {
         >
           Todas
         </button>
-        {CATEGORIES.map((category) => (
+        {categories.map((category) => (
           <button
             key={category}
             type="button"

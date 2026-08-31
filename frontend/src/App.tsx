@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, MustChangePasswordGate } from './auth/AuthContext'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AboutPage } from './pages/AboutPage'
 import { AdminPage } from './pages/AdminPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { DonatePage } from './pages/DonatePage'
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/apoiar" element={<DonatePage />} />
+              <Route path="/sobre" element={<AboutPage />} />
               <Route path="/change-password" element={
                 <ProtectedRoute>
                   <ChangePasswordPage />

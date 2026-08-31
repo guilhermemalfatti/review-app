@@ -9,6 +9,7 @@ import { usePageTitle } from '../lib/usePageTitle'
 
 export function HomePage() {
   const [providers, setProviders] = useState<ProviderListItem[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [category, setCategory] = useState('')
   const [q, setQ] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -16,6 +17,29 @@ export function HomePage() {
   const [error, setError] = useState<string | null>(null)
 
   usePageTitle('Prestadores · Indica')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCategories() {
+      try {
+        const data = await api.listCategories()
+        if (!cancelled) {
+          setCategories(data)
+          setCategory((current) =>
+            current && !data.includes(current) ? '' : current,
+          )
+        }
+      } catch {
+        if (!cancelled) setCategories([])
+      }
+    }
+
+    void loadCategories()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -80,7 +104,11 @@ export function HomePage() {
             Buscar
           </button>
         </form>
-        <CategoryChips value={category} onChange={setCategory} />
+        <CategoryChips
+          value={category}
+          onChange={setCategory}
+          categories={categories}
+        />
       </section>
 
       {loading && (
