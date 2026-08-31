@@ -169,8 +169,8 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 		err := tx.QueryRow(ctx, `SELECT id FROM users WHERE condo_id = $1 AND email = $2`, condoID, r.email).Scan(&id)
 		if err == pgx.ErrNoRows {
 			err = tx.QueryRow(ctx, `
-				INSERT INTO users (condo_id, email, password_hash, display_name, role)
-				VALUES ($1, $2, $3, $4, 'resident')
+				INSERT INTO users (condo_id, email, password_hash, display_name, role, listed)
+				VALUES ($1, $2, $3, $4, 'resident', false)
 				RETURNING id
 			`, condoID, r.email, string(passwordHash), r.displayName).Scan(&id)
 			if err != nil {
@@ -178,6 +178,10 @@ func SeedDemo(ctx context.Context, pool *pgxpool.Pool, condoID uuid.UUID) error 
 			}
 		} else if err != nil {
 			return fmt.Errorf("lookup demo resident %s: %w", r.email, err)
+		} else {
+			if _, err := tx.Exec(ctx, `UPDATE users SET listed = false WHERE id = $1`, id); err != nil {
+				return fmt.Errorf("unlist demo resident %s: %w", r.email, err)
+			}
 		}
 		residentIDs[r.email] = id
 	}

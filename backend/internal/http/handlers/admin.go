@@ -505,7 +505,7 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT id, email, display_name, role, condominio, lote, must_change_password, created_at
 		FROM users
-		WHERE condo_id = $1
+		WHERE condo_id = $1 AND listed = true
 		ORDER BY created_at DESC, display_name ASC
 	`, h.condoID)
 	if err != nil {
