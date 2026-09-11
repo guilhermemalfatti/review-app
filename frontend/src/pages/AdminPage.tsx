@@ -154,7 +154,7 @@ export function AdminPage() {
           className={`admin-tab ${tab === 'reviews' ? 'admin-tab--active' : ''}`}
           onClick={() => switchTab('reviews')}
         >
-          Indicações
+          Indicações Pendentes
           <span className="admin-tab__count">{reviews.length}</span>
         </button>
         <button

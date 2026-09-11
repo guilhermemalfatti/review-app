@@ -86,6 +86,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             className={`site-nav${menuOpen ? ' is-open' : ''}`}
             aria-label="Principal"
           >
+            {!loading && user && (
+              <>
+                <span className="site-nav__user" title={user.email}>
+                  Olá, {user.display_name}
+                </span>
+                <hr className="site-nav__divider" />
+              </>
+            )}
             <NavLink
               to="/"
               end
@@ -126,18 +134,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
             {!loading &&
               (user ? (
-                <>
-                  <span className="site-nav__user" title={user.email}>
-                    Olá, {user.display_name}
-                  </span>
-                  <button
-                    type="button"
-                    className="nav-button"
-                    onClick={() => void handleLogout()}
-                  >
-                    Sair
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="nav-button"
+                  onClick={() => void handleLogout()}
+                >
+                  Sair
+                </button>
               ) : (
                 <NavLink
                   to="/login"
