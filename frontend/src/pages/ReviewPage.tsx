@@ -185,7 +185,7 @@ export function ReviewPage() {
         <p>Conte como foi o serviço. Sua indicação será revisada antes de aparecer.</p>
       </header>
 
-      {existingReview && (
+      {existingReview && !success && (
         <StatusMessage tone="info">
           Você já tem uma indicação
           {statusLabel ? ` (${statusLabel})` : ''}. A indicação atual continua
@@ -194,14 +194,6 @@ export function ReviewPage() {
       )}
 
       {reviewLoadError && <StatusMessage tone="error">{reviewLoadError}</StatusMessage>}
-
-      {success && (
-        <StatusMessage tone="success">
-          {replaced
-            ? 'Nova versão enviada. Ela aguarda aprovação; a atual continua visível por enquanto.'
-            : 'Indicação enviada. Ela será revisada antes de aparecer.'}
-        </StatusMessage>
-      )}
 
       <form className="form" onSubmit={(e) => void handleSubmit(e)}>
         {error && <StatusMessage tone="error">{error}</StatusMessage>}
@@ -230,7 +222,7 @@ export function ReviewPage() {
 
         <div className="score-fields">
           <label className="field">
-            <span>Preço — vale o que cobra?</span>
+            <span>Preço</span>
             <select value={scorePrice} onChange={(e) => setScorePrice(e.target.value)}>
               <option value="">Não informar</option>
               <option value="1">1 — Ruim</option>
@@ -241,7 +233,7 @@ export function ReviewPage() {
             </select>
           </label>
           <label className="field">
-            <span>Qualidade — o serviço ficou bom?</span>
+            <span>Qualidade</span>
             <select value={scoreQuality} onChange={(e) => setScoreQuality(e.target.value)}>
               <option value="">Não informar</option>
               <option value="1">1 — Ruim</option>
@@ -252,7 +244,7 @@ export function ReviewPage() {
             </select>
           </label>
           <label className="field">
-            <span>Prazo — cumpriu o tempo combinado?</span>
+            <span>Prazo </span>
             <select value={scoreDeadline} onChange={(e) => setScoreDeadline(e.target.value)}>
               <option value="">Não informar</option>
               <option value="1">1 — Ruim</option>
@@ -307,6 +299,14 @@ export function ReviewPage() {
               ? 'Atualizar indicação'
               : 'Enviar indicação'}
         </button>
+
+        {success && (
+          <StatusMessage tone="success">
+            {replaced
+              ? 'Nova versão enviada. Ela aguarda aprovação; a atual continua visível por enquanto.'
+              : 'Indicação enviada. Ela será revisada antes de aparecer.'}
+          </StatusMessage>
+        )}
       </form>
 
       <p className="auth-switch">
