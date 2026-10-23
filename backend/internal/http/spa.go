@@ -45,7 +45,7 @@ func spaHandler(root string) http.HandlerFunc {
 
 		rel := strings.TrimPrefix(filepath.Clean("/"+r.URL.Path), "/")
 		if rel == "." || rel == "" {
-			http.ServeFile(w, r, index)
+			serveHTML(w, r, index)
 			return
 		}
 
@@ -59,11 +59,18 @@ func spaHandler(root string) http.HandlerFunc {
 		if err == nil && !st.IsDir() {
 			if strings.HasPrefix(rel, "assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else if strings.HasSuffix(strings.ToLower(rel), ".html") {
+				w.Header().Set("Cache-Control", "no-store")
 			}
 			http.ServeFile(w, r, full)
 			return
 		}
 
-		http.ServeFile(w, r, index)
+		serveHTML(w, r, index)
 	}
+}
+
+func serveHTML(w http.ResponseWriter, r *http.Request, path string) {
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, path)
 }
