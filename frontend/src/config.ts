@@ -7,6 +7,7 @@ export const PIX_KEY_LABEL = "Chave PIX";
 // Frontend UI source of truth for category chips/selects.
 // Backend currently accepts free-text categories (no enum enforced).
 export const CATEGORIES = [
+  "Nutricionista",
   "Gesseiro",
   "Uber",
   "Aulas de Música",
@@ -33,7 +34,6 @@ export const CATEGORIES = [
   "Limpeza de pátios",
   "Técnico eletrônico",
   "Desentupidora",
-  "Funilaria",
   "Marido de aluguel",
   "Manicure",
   "Serralheria",
