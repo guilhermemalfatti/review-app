@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api, ApiError } from '../api/client'
 import type { AdminUser, PendingProvider, PendingReview } from '../api/types'
 import { StatusMessage } from '../components/StatusMessage'
@@ -173,33 +174,44 @@ export function AdminPage() {
 
       {actionError && <StatusMessage tone="error">{actionError}</StatusMessage>}
 
-      {tempPasswordNotice && tab === 'users' && (
-        <div className="admin-password-toast" role="status">
-          <p className="admin-password-toast__title">
-            Nova senha de <strong>{tempPasswordNotice.name}</strong>
-          </p>
-          <code className="temp-password">{tempPasswordNotice.password}</code>
-          <div className="admin-password-toast__actions">
+      {tempPasswordNotice &&
+        tab === 'users' &&
+        createPortal(
+          <div className="admin-password-modal" role="presentation">
             <button
               type="button"
-              className="btn btn--primary btn--small"
-              onClick={() => void handleCopyPassword()}
-            >
-              {copied ? 'Copiado' : 'Copiar'}
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
+              className="admin-password-modal__backdrop"
+              aria-label="Fechar"
               onClick={() => setTempPasswordNotice(null)}
-            >
-              Fechar
-            </button>
-          </div>
-          <p className="admin-password-toast__hint">
-            Anote e passe para a pessoa. Ela deve trocar ao entrar.
-          </p>
-        </div>
-      )}
+            />
+            <div className="admin-password-toast" role="status">
+              <p className="admin-password-toast__title">
+                Nova senha de <strong>{tempPasswordNotice.name}</strong>
+              </p>
+              <code className="temp-password">{tempPasswordNotice.password}</code>
+              <div className="admin-password-toast__actions">
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  onClick={() => void handleCopyPassword()}
+                >
+                  {copied ? 'Copiado' : 'Copiar'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  onClick={() => setTempPasswordNotice(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+              <p className="admin-password-toast__hint">
+                Anote e passe para a pessoa. Ela deve trocar ao entrar.
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {loading && (
         <div className="state-block" role="status">

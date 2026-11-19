@@ -611,19 +611,36 @@
   color: var(--ink-muted);
 }
 
-.admin-password-toast {
+.admin-password-modal {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  z-index: 40;
-  width: min(28rem, calc(100vw - 32px));
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.admin-password-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(20, 53, 40, 0.35);
+  cursor: pointer;
+}
+
+.admin-password-toast {
+  position: relative;
+  z-index: 1;
+  width: min(28rem, 100%);
   padding: 16px;
   border-radius: var(--radius);
   border: 1px solid rgba(27, 122, 78, 0.28);
   background: rgba(238, 245, 240, 0.98);
   box-shadow: 0 12px 32px rgba(20, 53, 40, 0.18);
   color: var(--success);
-  transform: translate(-50%, -50%);
 }
 
 .admin-password-toast__title {
