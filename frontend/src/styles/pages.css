@@ -611,6 +611,46 @@
   color: var(--ink-muted);
 }
 
+.admin-password-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 40;
+  width: min(28rem, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(27, 122, 78, 0.28);
+  background: rgba(238, 245, 240, 0.98);
+  box-shadow: 0 12px 32px rgba(20, 53, 40, 0.18);
+  color: var(--success);
+  transform: translate(-50%, -50%);
+}
+
+.admin-password-toast__title {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: var(--leaf-deep);
+}
+
+.admin-password-toast .temp-password {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+}
+
+.admin-password-toast__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.admin-password-toast__hint {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+}
+
 .admin-tabs {
   display: flex;
   flex-direction: column;

@@ -172,17 +172,33 @@ export function AdminPage() {
       </div>
 
       {actionError && <StatusMessage tone="error">{actionError}</StatusMessage>}
+
       {tempPasswordNotice && tab === 'users' && (
-        <StatusMessage tone="success">
-          Nova senha de <strong>{tempPasswordNotice.name}</strong>:{' '}
+        <div className="admin-password-toast" role="status">
+          <p className="admin-password-toast__title">
+            Nova senha de <strong>{tempPasswordNotice.name}</strong>
+          </p>
           <code className="temp-password">{tempPasswordNotice.password}</code>
-          {' '}
-          <button type="button" className="btn btn--ghost" onClick={() => void handleCopyPassword()}>
-            {copied ? 'Copiado' : 'Copiar'}
-          </button>
-          <br />
-          Anote e passe para a pessoa. Ela deve trocar ao entrar.
-        </StatusMessage>
+          <div className="admin-password-toast__actions">
+            <button
+              type="button"
+              className="btn btn--primary btn--small"
+              onClick={() => void handleCopyPassword()}
+            >
+              {copied ? 'Copiado' : 'Copiar'}
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setTempPasswordNotice(null)}
+            >
+              Fechar
+            </button>
+          </div>
+          <p className="admin-password-toast__hint">
+            Anote e passe para a pessoa. Ela deve trocar ao entrar.
+          </p>
+        </div>
       )}
 
       {loading && (

@@ -80,7 +80,7 @@ func (h *AdminHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		JOIN users u ON u.id = p.created_by
 		LEFT JOIN users rv ON rv.id = p.reviewed_by
 		WHERE p.condo_id = $1 AND p.status = $2
-		ORDER BY p.created_at ASC
+		ORDER BY lower(p.name) ASC, p.name ASC, p.created_at ASC
 	`, h.condoID, status)
 	if err != nil {
 		WriteServerError(w, r, "failed to list providers", err)
@@ -506,7 +506,7 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		SELECT id, email, display_name, role, condominio, lote, must_change_password, created_at
 		FROM users
 		WHERE condo_id = $1 AND listed = true
-		ORDER BY created_at DESC, display_name ASC
+		ORDER BY lower(display_name) ASC, display_name ASC, created_at ASC
 	`, h.condoID)
 	if err != nil {
 		WriteServerError(w, r, "failed to list users", err)
